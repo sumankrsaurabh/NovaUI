@@ -1,0 +1,216 @@
+:root {
+  font-family: var(--font-family, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --bg: #f7f8fc;
+  --surface: #ffffff;
+  --text: #202333;
+  --muted: #6b7280;
+  --border: #e4e7ef;
+  --primary: #6558d3;
+  --primary-hover: #5144bd;
+  --shadow: 0 12px 34px rgba(30, 35, 90, .08);
+  color: var(--text);
+  background: var(--bg);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #11131a;
+  --surface: #1b1e28;
+  --text: #f4f5fb;
+  --muted: #a2a7b8;
+  --border: #303442;
+  --primary: #a49aff;
+  --primary-hover: #b8b0ff;
+  --shadow: 0 12px 34px rgba(0, 0, 0, .24);
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); }
+#app { min-height: 100vh; padding: 24px; }
+.loading { color: var(--muted); }
+.nova-layout { display: flex; min-width: 0; }
+.nova-layout.row { flex-direction: row; }
+.nova-layout.column { flex-direction: column; }
+.nova-container { min-width: 0; }
+.nova-grid { display: grid; min-width: 0; grid-template-columns: repeat(var(--nova-grid-columns, 2), minmax(0, 1fr)); }
+.nova-grid.columns-1 { --nova-grid-columns: 1; }
+.nova-grid.columns-2 { --nova-grid-columns: 2; }
+.nova-grid.columns-3 { --nova-grid-columns: 3; }
+.nova-grid.columns-4 { --nova-grid-columns: 4; }
+.nova-grid.columns-5 { --nova-grid-columns: 5; }
+.nova-grid.columns-6 { --nova-grid-columns: 6; }
+.nova-grid.columns-7 { --nova-grid-columns: 7; }
+.nova-grid.columns-8 { --nova-grid-columns: 8; }
+.nova-grid.columns-9 { --nova-grid-columns: 9; }
+.nova-grid.columns-10 { --nova-grid-columns: 10; }
+.nova-grid.columns-11 { --nova-grid-columns: 11; }
+.nova-grid.columns-12 { --nova-grid-columns: 12; }
+.nova-scroll-view { min-width: 0; min-height: 0; overscroll-behavior: contain; }
+.nova-scroll-view > * { min-width: 0; }
+.nova-scroll-view.direction-horizontal { display: flex; flex-direction: row; }
+.nova-scroll-view.direction-horizontal > * { flex: 0 0 auto; }
+.nova-stack { display: grid; min-width: 0; }
+.nova-stack > * { grid-area: 1 / 1; }
+.nova-wrap { display: flex; flex-wrap: wrap; min-width: 0; }
+.nova-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+.nova-text { line-height: 1.45; overflow-wrap: anywhere; }
+.nova-button {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius, 10px);
+  min-height: 40px;
+  padding: 9px 16px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .12s ease, background .12s ease, opacity .12s ease;
+}
+.nova-button:active { transform: scale(.98); }
+.nova-button:focus-visible, .nova-input:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  outline-offset: 2px;
+}
+.nova-button.primary { background: var(--primary); color: white; }
+.nova-button.primary:hover { background: var(--primary-hover); }
+.nova-button.secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+.nova-button:disabled { opacity: .55; cursor: not-allowed; }
+.nova-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.nova-form { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.nova-form-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.nova-form-status { min-height: 1.4em; }
+.nova-form-loading { color: var(--muted); }
+.nova-app-shell { width: 100%; }
+.nova-sidebar { flex: 0 0 auto; background: var(--surface); border-right: 1px solid var(--border); }
+.nova-main-content { flex: 1 1 auto; }
+.nova-header, .nova-footer { border-bottom: 1px solid var(--border); }
+.nova-footer { border-top: 1px solid var(--border); border-bottom: 0; }
+.nova-navigation-item { width: 100%; text-align: left; }
+.nova-navigation-item.active { font-weight: 700; }
+.nova-breadcrumbs { flex-wrap: wrap; }
+.nova-tab-list { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+.nova-tab { appearance: none; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); padding: 10px 14px; font: inherit; cursor: pointer; }
+.nova-tab.active { border-bottom-color: var(--primary); color: var(--text); font-weight: 600; }
+.nova-tab:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent); outline-offset: 2px; }
+.nova-tab-panel { padding-top: 16px; }
+.nova-alert { border: 1px solid var(--border); border-radius: var(--radius, 10px); padding: 12px 16px; background: var(--surface); }
+.nova-alert.success { border-color: #32a36a; }
+.nova-alert.warning { border-color: #d38a16; }
+.nova-alert.error { border-color: #c43d3d; }
+.nova-spinner { display: inline-flex; align-items: center; gap: 10px; }
+.nova-spinner-mark { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: nova-spin .8s linear infinite; }
+@keyframes nova-spin { to { transform: rotate(360deg); } }
+.nova-dialog { width: min(92vw, 520px); max-height: 85vh; border: 1px solid var(--border); border-radius: var(--radius, 10px); padding: 24px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.nova-dialog::backdrop { background: rgb(0 0 0 / .45); }
+.nova-dialog-title { margin: 0 0 12px; font-size: 20px; }
+.nova-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.field-label { color: var(--muted); font-size: 13px; }
+.field-error { color: #b42318; font-size: 13px; }
+:root[data-theme="dark"] .field-error { color: #ff8d85; }
+.nova-input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.nova-data-table { min-width: 0; color: var(--text); background: var(--surface); }
+.nova-table-search, .nova-table-filter {
+  width: 100%; min-width: 8rem; min-height: 36px; padding: 7px 9px;
+  border: 1px solid var(--border); border-radius: 7px; background: var(--surface);
+  color: var(--text); font: inherit;
+}
+.nova-table-search { max-width: 24rem; margin-bottom: 10px; }
+.nova-table-scroll { width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+.nova-table { width: 100%; border-collapse: collapse; text-align: left; }
+.nova-table th, .nova-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.nova-table th { background: var(--surface); color: var(--muted); font-size: .875rem; font-weight: 650; }
+.nova-table tbody tr:last-child td { border-bottom: 0; }
+.nova-table tbody tr.selected { background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }
+.nova-table tbody tr[tabindex]:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: -3px; }
+.nova-table-sort { border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; cursor: pointer; text-align: left; }
+.nova-table-sort:focus-visible, .nova-table-search:focus-visible, .nova-table-filter:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent); outline-offset: 1px;
+}
+.nova-table-status { min-height: 1.5em; margin: 8px 0; color: var(--muted); font-size: .875rem; }
+.nova-table-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.nova-table-pagination .nova-button { min-height: 36px; padding: 6px 11px; }
+.nova-table-actions { white-space: nowrap; }
+.nova-table-actions .nova-button { min-height: 34px; margin-right: 6px; padding: 5px 10px; }
+.nova-data-table input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--primary); vertical-align: middle; }
+.nova-spacer { flex: 0 0 auto; }
+.nova-animated { min-width: 0; }
+.nova-animated.enter-fade { animation-name: nova-fade; animation-fill-mode: both; }
+.nova-animated.enter-fade_up { animation-name: nova-fade-up; animation-fill-mode: both; }
+.nova-animated.enter-fade_down { animation-name: nova-fade-down; animation-fill-mode: both; }
+.nova-animated.enter-slide_in { animation-name: nova-slide-in; animation-fill-mode: both; }
+.nova-animated.enter-scale_in { animation-name: nova-scale-in; animation-fill-mode: both; }
+.nova-animated.enter-pop { animation-name: nova-pop; animation-fill-mode: both; }
+@keyframes nova-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nova-fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes nova-fade-down { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes nova-slide-in { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes nova-scale-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes nova-pop { 0% { opacity: 0; transform: scale(.92); } 70% { transform: scale(1.02); } 100% { opacity: 1; transform: scale(1); } }
+.error { color: #d33; }
+@media (max-width: 640px) {
+  #app { padding: 16px; }
+  .nova-layout.row { flex-wrap: wrap; }
+  .nova-grid.columns-2, .nova-grid.columns-many { --nova-grid-columns: 1; }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .nova-grid.columns-many { --nova-grid-columns: 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.nova-center { min-height: 100%; display: flex; align-items: center; justify-content: center; }
+
+/* NovaUI Studio: a real component explorer built with public NovaUI components. */
+.studio-root { min-height: 100vh; background: var(--bg); }
+.studio-sidebar { width: 310px; min-width: 250px; gap: 12px; border-right-color: var(--border); }
+.studio-sidebar > .nova-button { width: 100%; text-align: left; }
+.studio-main { width: calc(100% - 310px); min-width: 0; padding: 20px; gap: 16px; }
+.studio-topbar { min-height: 52px; padding: 0 4px 14px; border-bottom: 1px solid var(--border); }
+.studio-hero { gap: 8px; background: linear-gradient(125deg, color-mix(in srgb, var(--primary) 11%, var(--surface)), var(--surface) 72%); }
+.studio-hero > .nova-text:first-child { letter-spacing: -.035em; }
+.studio-pill { padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); background: var(--surface); font-size: 12px; }
+.studio-feature-grid > .nova-card { box-shadow: none; }
+.studio-workspace { min-width: 0; }
+.studio-workspace > .nova-layout { min-width: 0; }
+.studio-panel { flex: 1 1 55%; min-width: 0; }
+.studio-inspector { flex: 1 1 35%; min-width: 260px; }
+.studio-preview-card { min-height: 150px; }
+.studio-preview-card .nova-grid { margin-top: 12px; }
+.studio-catalogue { min-width: 0; width: 100%; }
+.studio-catalogue .nova-table { font-size: 13px; }
+.studio-footer { color: var(--muted); font-size: 12px; }
+@media (max-width: 900px) {
+  #app { padding: 0; }
+  .studio-root { flex-direction: column; }
+  .studio-sidebar { width: 100%; min-width: 0; border-right: 0; border-bottom: 1px solid var(--border); }
+  .studio-sidebar .studio-catalogue { max-height: 260px; overflow: auto; }
+  .studio-main { width: 100%; padding: 16px; }
+  .studio-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .studio-main { padding: 12px; }
+  .studio-topbar { flex-wrap: wrap; }
+  .studio-topbar .nova-spacer { display: none; }
+  .studio-feature-grid { grid-template-columns: minmax(0, 1fr); }
+  .studio-workspace { flex-direction: column; }
+  .studio-inspector { min-width: 0; }
+}

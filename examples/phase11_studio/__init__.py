@@ -1,0 +1,1 @@
+"""NovaUI Studio validation application."""

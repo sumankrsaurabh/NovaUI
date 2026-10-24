@@ -1,0 +1,58 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "novaui"
+description = "A Python-first declarative UI framework for web and optional desktop applications."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+dynamic = ["version"]
+keywords = ["ui", "gui", "webview", "declarative", "desktop"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: User Interfaces",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/sumankrsaurabh/NovaUI"
+Documentation = "https://github.com/sumankrsaurabh/NovaUI/tree/main/docs"
+Repository = "https://github.com/sumankrsaurabh/NovaUI"
+Issues = "https://github.com/sumankrsaurabh/NovaUI/issues"
+Changelog = "https://github.com/sumankrsaurabh/NovaUI/blob/main/CHANGELOG.md"
+
+[project.scripts]
+novaui = "novaui.cli:main"
+
+[project.optional-dependencies]
+desktop = ["pywebview>=5.0"]
+desktop-qt = ["pywebview[qt]>=5.0"]
+dev = ["pytest>=8.0", "ruff>=0.5", "build>=1.2", "twine>=5.0"]
+build = ["build>=1.2"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["novaui"]
+include = ["novaui/frontend/**"]
+
+[tool.hatch.version]
+path = "novaui/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/AGENTS.md",
+    "/CLAUDE.md",
+    "/CODEX.md",
+    "/PROMPT_FOR_CLAUDE_CODE.md",
+    "/PROMPT_FOR_CODEX.md",
+    "/.github/",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

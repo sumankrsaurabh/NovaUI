@@ -1,0 +1,83 @@
+name: TestPyPI verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_upload:
+        description: Type UPLOAD to publish the selected version to TestPyPI
+        required: true
+        type: choice
+        options:
+          - NO
+          - UPLOAD
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: inputs.confirm_upload == 'UPLOAD'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python -m pip install build twine pytest
+      - name: Require matching version tag
+        shell: bash
+        run: |
+          expected="v$(python -c 'from novaui import __version__; print(__version__)')"
+          test "$GITHUB_REF_TYPE" = "tag" && test "$GITHUB_REF_NAME" = "$expected" || {
+            echo "Dispatch this workflow on the matching version tag ($expected)." >&2
+            exit 1
+          }
+      - run: python -m pytest -q
+      - run: python -m build --sdist --wheel
+      - run: python -m twine check dist/*
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: testpypi-distributions
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-and-verify:
+    needs: build
+    if: inputs.confirm_upload == 'UPLOAD'
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/novaui/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: testpypi-distributions
+          path: dist
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install and verify published wheel
+        shell: bash
+        run: |
+          version="$(python -c 'from novaui import __version__; print(__version__)')"
+          python -m pip install --no-deps --index-url https://test.pypi.org/simple \
+            --target "$RUNNER_TEMP/novaui-testpypi" "novaui==$version"
+          cd "$RUNNER_TEMP"
+          PYTHONPATH="$RUNNER_TEMP/novaui-testpypi" python - <<'PY'
+          from importlib.resources import files
+          import novaui
+          assert novaui.__version__
+          for filename in ("index.html", "app.js", "styles.css"):
+              assert files("novaui").joinpath("frontend", filename).is_file()
+          app = novaui.App(novaui.Text("TestPyPI install"))
+          assert app.serialize_tree()["root"]["text"] == "TestPyPI install"
+          print(novaui.__version__)
+          PY
+          PYTHONPATH="$RUNNER_TEMP/novaui-testpypi" python -m novaui --version
