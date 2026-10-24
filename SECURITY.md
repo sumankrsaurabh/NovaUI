@@ -25,9 +25,9 @@ NovaUI is an early-stage framework. Its loopback server and event bridge are int
 
 ## Reporting a vulnerability
 
-This repository has not configured GitHub private vulnerability reporting or published a private security contact. Do not post exploit details in a public issue. Before a public release, maintainers should enable GitHub private vulnerability reporting or document a monitored private address here. Until then, contact the repository owner privately through the hosting service, if a private route is available; if no private route is available, do not send exploit details publicly.
+GitHub private vulnerability reporting is enabled for [the NovaUI repository](https://github.com/sumankrsaurabh/NovaUI/security/advisories). Use the repository's **Security → Advisories → Report a vulnerability** flow to send exploit details privately; do not post them in a public issue. No separate private security contact address or response-time guarantee is currently published.
 
-Include the affected version or commit, environment, a minimal reproduction, impact, and any suggested mitigation. Do not include real user data or credentials. The maintainer should acknowledge receipt, triage severity and affected versions, coordinate a fix and disclosure with the reporter, and communicate the fix through a changelog or repository security advisory. There is currently no published response-time guarantee or configured advisory endpoint.
+Include the affected version or commit, environment, a minimal reproduction, impact, and any suggested mitigation. Do not include real user data or credentials. The maintainer will use the private advisory to triage severity and affected versions, coordinate a fix and disclosure with the reporter, and communicate the fix through a changelog or repository security advisory. There is currently no published response-time guarantee.
 
 ## Dependency audit status
 
