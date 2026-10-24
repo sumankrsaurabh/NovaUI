@@ -66,7 +66,7 @@ def test_cli_create_generates_importable_starter_and_protects_existing(tmp_path,
     assert cli.main(["create", "my_app"]) == 0
     project = tmp_path / "my_app"
     assert {"app.py", "pyproject.toml", "README.md", "tests/test_app.py", "my_app/__init__.py", "assets/.gitkeep"} <= {
-        str(path.relative_to(project)) for path in project.rglob("*") if path.is_file()
+        path.relative_to(project).as_posix() for path in project.rglob("*") if path.is_file()
     }
     monkeypatch.syspath_prepend(str(project))
     from app import MainPage
