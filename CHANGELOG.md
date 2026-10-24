@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 - 2026-10-24
 
 - Made `novaui/__init__.py` the authoritative package version source, declared the existing MIT license for distribution, removed the unverified placeholder author from package metadata, and explicitly included frontend resources in wheels.
 - Switched the HTTP server to `importlib.resources` for frontend asset access and added package-resource smoke tests.
