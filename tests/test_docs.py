@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import runpy
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -31,11 +32,13 @@ def test_repository_markdown_relative_links_resolve():
 def test_public_component_exports_are_mentioned_in_reference():
     reference = (ROOT / "COMPONENTS.md").read_text(encoding="utf-8")
     documented = (
-        "Text", "Image", "Button", "Input", "Row", "Column", "Card", "Center",
-        "Container", "Grid", "ScrollView", "Stack", "Wrap", "Spacer", "DataTable",
+        "Text", "Image", "Button", "Input", "NumberField", "SearchField", "RadioGroup", "MultiSelect",
+        "Row", "Column", "Card", "Center", "Container", "Grid", "SplitPane", "ScrollView", "Stack",
+        "Wrap", "Spacer", "StickyHeader", "DataTable",
         "ColumnDef", "RowAction", "Field", "Form", "Router", "AppShell", "Header",
         "Sidebar", "MainContent", "Footer", "NavigationItem", "Breadcrumbs", "Tabs",
-        "Alert", "Dialog", "Spinner", "Theme", "CustomComponent", "WindowOptions",
+        "Alert", "Dialog", "Spinner", "Toast", "ToastHost", "Theme", "CustomComponent", "WindowOptions",
+        "DataGrid", "BulkAction", "CommandPalette", "TreeView", "Toolbar", "StatusBar", "FileUpload",
         "Menu", "MenuItem", "MenuSeparator", "ShortcutRegistry",
     )
     for name in documented:
@@ -51,3 +54,35 @@ def test_examples_compile_and_serialize_initial_tree(monkeypatch):
             runpy.run_path(str(example), run_name="__main__")
     finally:
         sys.argv = original_argv
+
+
+def test_file_upload_example_uses_system_glass_theme_and_responsive_card(monkeypatch):
+    captured = {}
+
+    def capture(root, **kwargs):
+        captured["tree"] = root.to_dict(lambda callback: "event")
+        captured["theme"] = kwargs["theme"]
+
+    monkeypatch.setattr(ui, "app", capture)
+    example = ROOT / "examples" / "file_upload.py"
+    runpy.run_path(str(example), run_name="__main__")
+
+    tree = captured["tree"]
+    assert captured["theme"].mode == "system"
+    assert captured["theme"].appearance == "glass"
+    assert tree["type"] == "column"
+    upload_card = tree["children"][2]
+    assert upload_card["type"] == "card"
+    assert upload_card["variant"] == "glass-strong"
+    assert any(child["type"] == "file_upload" for child in upload_card["children"][0]["children"])
+    details = tree["children"][3]
+    assert details["type"] == "grid"
+    assert details["mobile_columns"] == 1
+
+
+def test_generated_component_reference_matches_real_constructors():
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "generate_component_reference.py"), "--check"],
+        cwd=ROOT,
+        check=True,
+    )

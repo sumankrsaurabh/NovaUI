@@ -52,6 +52,30 @@ def test_closed_dialog_ignores_stale_action_and_callback_failure_is_safe(caplog)
     assert "private detail" not in caplog.text
 
 
+def test_toast_queue_is_bounded_and_dismisses_items_through_event_registry():
+    queue = ui.ToastQueue(max_toasts=2)
+    first = queue.push("First")
+    second = queue.push("Second", kind="success")
+    third = queue.push("Third", duration=0)
+    assert (first, second, third) == ("toast-1", "toast-2", "toast-3")
+
+    app = ui.App(queue)
+    tree = app.serialize_tree()["root"]
+    assert [toast["message"] for toast in tree["children"]] == ["Second", "Third"]
+    app.dispatch_event(tree["children"][0]["dismiss_event_id"])
+    assert [toast["message"] for toast in app.serialize_tree()["root"]["children"]] == ["Third"]
+    queue.clear()
+    assert app.serialize_tree()["root"]["children"] == []
+    app.dispose()
+
+
+def test_toast_queue_validates_capacity():
+    import pytest
+
+    with pytest.raises(ValueError, match="max_toasts"):
+        ui.ToastQueue(max_toasts=0)
+
+
 def test_tabs_selects_panel_and_releases_owned_state():
     tabs = ui.Tabs({"General": ui.Text("General panel"), "Privacy": ui.Text("Privacy panel")})
     app = ui.App(tabs)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import math
 import re
 from collections.abc import Callable, Mapping, Sequence
@@ -61,6 +63,20 @@ class RowAction:
             raise TypeError("RowAction on_click must be callable.")
 
 
+@dataclass(frozen=True)
+class BulkAction:
+    """An action applied to the currently selected table rows."""
+
+    label: str
+    on_click: Callable[[list[Mapping[str, Any]]], Any]
+
+    def validate(self) -> None:
+        if not isinstance(self.label, str) or not self.label.strip():
+            raise ValueError("BulkAction label must be a non-empty string.")
+        if not callable(self.on_click):
+            raise TypeError("BulkAction on_click must be callable.")
+
+
 class _ValueHandler:
     accepts_value = True
 
@@ -96,6 +112,10 @@ class DataTable(Component):
         on_row_click: Callable[[Mapping[str, Any]], Any] | None = None,
         on_selection_change: Callable[[list[Mapping[str, Any]]], Any] | None = None,
         row_actions: Sequence[RowAction] = (),
+        bulk_actions: Sequence[BulkAction] = (),
+        column_visibility: bool = False,
+        exportable: bool = False,
+        mobile_layout: str = "cards",
         **props: Any,
     ):
         super().__init__(**props)
@@ -112,12 +132,18 @@ class DataTable(Component):
         self.on_row_click = on_row_click
         self.on_selection_change = on_selection_change
         self.row_actions = tuple(row_actions)
+        self.bulk_actions = tuple(bulk_actions)
+        self.column_visibility = column_visibility
+        self.exportable = exportable
+        self.mobile_layout = mobile_layout
         self._sort_key: str | None = None
         self._sort_descending = False
         self._search = ""
         self._filters: dict[str, str] = {}
         self._page = 0
         self._selected: set[Any] = set()
+        self._visible_columns: set[str] = set()
+        self._export_requested = False
 
     def _rows(self) -> list[Mapping[str, Any]]:
         source = self.data.value if isinstance(self.data, State) else self.data
@@ -179,9 +205,12 @@ class DataTable(Component):
             raise ValueError("DataTable column keys must be unique.")
         if self.row_key is not None and (not isinstance(self.row_key, str) or not _KEY.fullmatch(self.row_key)):
             raise ValueError("DataTable row_key must be a valid field name.")
-        for name in ("selectable", "sortable", "searchable", "filterable", "loading"):
+        for name in ("selectable", "sortable", "searchable", "filterable", "loading",
+                     "column_visibility", "exportable"):
             if not isinstance(getattr(self, name), bool):
                 raise TypeError(f"DataTable {name} must be a bool.")
+        if not isinstance(self.mobile_layout, str) or self.mobile_layout not in {"table", "cards"}:
+            raise ValueError("DataTable mobile_layout must be 'table' or 'cards'.")
         if isinstance(self.page_size, bool) or not isinstance(self.page_size, int) or not 1 <= self.page_size <= 1000:
             raise ValueError("DataTable page_size must be an integer from 1 to 1000.")
         if not isinstance(self.empty_message, str):
@@ -194,6 +223,10 @@ class DataTable(Component):
             raise TypeError("DataTable row_actions must contain RowAction instances.")
         for action in self.row_actions:
             action.validate()
+        if any(not isinstance(action, BulkAction) for action in self.bulk_actions):
+            raise TypeError("DataTable bulk_actions must contain BulkAction instances.")
+        for action in self.bulk_actions:
+            action.validate()
         rows = self._rows()
         if self.row_key is not None:
             missing_keys = [index for index, row in enumerate(rows) if self.row_key not in row]
@@ -201,6 +234,13 @@ class DataTable(Component):
                 raise ValueError(f"DataTable row {missing_keys[0]} is missing row_key {self.row_key!r}.")
         identities = [self._row_identity(row, index) for index, row in enumerate(rows)]
         self._selected.intersection_update(identities)
+        valid_columns = set(keys)
+        if not self._visible_columns:
+            self._visible_columns = valid_columns.copy()
+        else:
+            self._visible_columns.intersection_update(valid_columns)
+            if not self._visible_columns:
+                self._visible_columns = valid_columns.copy()
         if self.row_key is not None and len(set(identities)) != len(identities):
             raise ValueError("DataTable row_key values must be unique.")
         return rows
@@ -242,6 +282,8 @@ class DataTable(Component):
 
         column_nodes = []
         for column in self.columns:
+            if column.key not in self._visible_columns:
+                continue
             sort_event_id = None
             if self.sortable and column.sortable:
                 def sort_column(key=column.key):
@@ -289,7 +331,8 @@ class DataTable(Component):
             ]
             row_nodes.append({
                 "key": str(identity),
-                "cells": [self._display(column, row) for column in self.columns],
+                "cells": [self._display(column, row) for column in self.columns
+                          if column.key in self._visible_columns],
                 "selected": identity in self._selected,
                 "select_event_id": register(
                     lambda current=identity: self._toggle_selection(current, rows)
@@ -300,6 +343,24 @@ class DataTable(Component):
 
         previous_event_id = register(lambda: self._change_page(-1)) if self._page > 0 else None
         next_event_id = register(lambda: self._change_page(1)) if self._page + 1 < page_count else None
+        column_controls = []
+        if self.column_visibility:
+            for column in self.columns:
+                column_controls.append({
+                    "key": column.key,
+                    "title": column.label,
+                    "visible": column.key in self._visible_columns,
+                    "event_id": register(lambda key=column.key: self._toggle_column(key))
+                    if len(self._visible_columns) > 1 or column.key not in self._visible_columns else None,
+                })
+        bulk_action_nodes = [
+            {"label": action.label, "event_id": register(
+                lambda callback=action.on_click: callback(self._selected_rows(rows))
+            ) if self._selected else None}
+            for action in self.bulk_actions
+        ]
+        export_csv = self._csv_export(records) if self.exportable and self._export_requested else None
+        self._export_requested = False
         return {
             "id": self._node_id(),
             "type": "data_table",
@@ -320,6 +381,11 @@ class DataTable(Component):
             "page": self._page + 1,
             "page_count": page_count,
             "page_size": self.page_size,
+            "column_controls": column_controls,
+            "bulk_actions": bulk_action_nodes,
+            "export_event_id": register(self._request_export) if self.exportable else None,
+            "export_csv": export_csv,
+            "mobile_layout": self.mobile_layout,
             "previous_event_id": previous_event_id,
             "next_event_id": next_event_id,
             **self._common_props(),
@@ -342,3 +408,26 @@ class DataTable(Component):
         else:
             self._selected.add(identity)
         self._notify_selection(rows)
+
+    def _toggle_column(self, key: str) -> None:
+        if key in self._visible_columns and len(self._visible_columns) > 1:
+            self._visible_columns.remove(key)
+        else:
+            self._visible_columns.add(key)
+
+    def _request_export(self) -> None:
+        self._export_requested = True
+
+    def _csv_export(self, records: list[tuple[int, Mapping[str, Any]]]) -> str:
+        buffer = io.StringIO(newline="")
+        writer = csv.writer(buffer, lineterminator="\r\n")
+        columns = [column for column in self.columns if column.key in self._visible_columns]
+
+        def safe_cell(value: str) -> str:
+            formula_value = value.lstrip("\ufeff \t\r\n\x00").startswith(("=", "+", "-", "@"))
+            return "'" + value if formula_value else value
+
+        writer.writerow([safe_cell(column.label) for column in columns])
+        for _, row in records:
+            writer.writerow([safe_cell(self._display(column, row)) for column in columns])
+        return buffer.getvalue()

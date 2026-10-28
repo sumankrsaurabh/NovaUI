@@ -90,7 +90,7 @@ class Chart(Component):
             values = []
             for value in dataset.values:
                 if isinstance(value, bool) or not isinstance(value, (int, float)):
-                    raise ValueError("Chart values must be finite numbers.")
+                    raise TypeError("Chart values must be numeric.")
                 try:
                     finite = math.isfinite(value)
                 except OverflowError:

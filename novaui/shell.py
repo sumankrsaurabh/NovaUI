@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
-from .components import Column, Component, Row, Text, _ICON_NAMES
+from .components import _ICON_NAMES, Column, Component, Row, Text
 from .routing import current_route_path, navigate
 from .state import State, state
 
@@ -20,6 +20,16 @@ def AppShell(*children: Component, **props: Any) -> Row:
 def Header(*children: Component, **props: Any) -> Row:
     props.setdefault("padding", 12)
     props.setdefault("class_name", "nova-header")
+    return Row(*children, align="center", **props)
+
+
+def StickyHeader(*children: Component, **props: Any) -> Row:
+    """A top-sticky semantic header row with the standard NovaUI header styling."""
+    props.setdefault("padding", 12)
+    class_name = props.get("class_name", "nova-sticky-header")
+    if class_name is not None and not isinstance(class_name, str):
+        raise TypeError("StickyHeader class_name must be a string or None.")
+    props["class_name"] = f"nova-sticky-header {class_name}" if class_name != "nova-sticky-header" else class_name
     return Row(*children, align="center", **props)
 
 
@@ -143,6 +153,7 @@ class Scaffold(Component):
         current_path: str | None = None,
         label: str = "Primary navigation",
         sidebar_width: int = 256,
+        collapsible: bool = True,
         **props: Any,
     ) -> None:
         super().__init__(**props)
@@ -182,6 +193,8 @@ class Scaffold(Component):
             raise ValueError("Scaffold current_path must be an app path beginning with '/' or None.")
         if not isinstance(label, str) or not label.strip():
             raise ValueError("Scaffold navigation label must be a non-empty string.")
+        if not isinstance(collapsible, bool):
+            raise TypeError("Scaffold collapsible must be a bool.")
         if isinstance(sidebar_width, bool) or not isinstance(sidebar_width, int) or not 200 <= sidebar_width <= 360:
             raise ValueError("Scaffold sidebar_width must be an integer from 200 to 360 pixels.")
 
@@ -193,6 +206,7 @@ class Scaffold(Component):
         self.current_path = current_path
         self.label = label.strip()
         self.sidebar_width = sidebar_width
+        self.collapsible = collapsible
         self._handlers = tuple(self._make_handler(item.href) for item in self.destinations)
         self.class_name = "nova-scaffold" if self.class_name is None else f"nova-scaffold {self.class_name}"
 
@@ -225,6 +239,7 @@ class Scaffold(Component):
             "type": "scaffold",
             "label": self.label,
             "sidebar_width": self.sidebar_width,
+            "collapsible": self.collapsible,
             "destinations": destinations,
             "brand": self.brand.to_dict(register_event) if self.brand else None,
             "top_bar": self.top_bar.to_dict(register_event) if self.top_bar else None,

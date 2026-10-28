@@ -255,22 +255,36 @@ def _check(project_dir: Path) -> int:
             project_lines.append(line)
         project_section = "\n".join(project_lines)
         project_metadata: dict[str, str] = {}
+        dynamic_fields: set[str] = set()
         for line in project_section.splitlines():
             key, separator, value_text = line.partition("=")
-            if separator and key.strip() in {"name", "version"}:
+            metadata_key = key.strip()
+            if separator and metadata_key in {"name", "version", "dynamic"}:
                 try:
                     value = ast.literal_eval(value_text.strip())
                 except (ValueError, SyntaxError):
                     continue
-                if isinstance(value, str) and value.strip():
-                    project_metadata[key.strip()] = value
+                if metadata_key in {"name", "version"} and isinstance(value, str) and value.strip():
+                    project_metadata[metadata_key] = value
+                elif metadata_key == "dynamic" and isinstance(value, list):
+                    dynamic_fields = {field for field in value if isinstance(field, str)}
         if "name" not in project_metadata:
             print("Package metadata failed: pyproject.toml needs [project].name.", file=sys.stderr)
             return 1
-        if "version" not in project_metadata:
-            print("Package metadata failed: pyproject.toml needs [project].version.", file=sys.stderr)
+        if "version" in project_metadata and "version" in dynamic_fields:
+            print(
+                "Package metadata failed: project version must be either static or dynamic, not both.",
+                file=sys.stderr,
+            )
             return 1
-        print("Package metadata: passed (project name and version found)")
+        if "version" not in project_metadata and "version" not in dynamic_fields:
+            print(
+                "Package metadata failed: pyproject.toml needs [project].version or "
+                '"version" in [project].dynamic.',
+                file=sys.stderr,
+            )
+            return 1
+        print("Package metadata: passed (project name and static or dynamic version found)")
     else:
         print("Package metadata: skipped (no pyproject.toml)")
     try:

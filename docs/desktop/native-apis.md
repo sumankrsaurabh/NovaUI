@@ -6,6 +6,8 @@ Native APIs are explicit and only work inside a supported desktop runtime.
   operations on the active desktop window.
 - `ui.dialogs.open_file(...)` and `save_file(...)`: return a selected path or
   `None` on cancellation. NovaUI does not open or write the selected path.
+- `ui.dialogs.select_folder(...)`: return a selected directory or `None` on
+  cancellation when the active pywebview backend supports folder selection.
 - `ui.clipboard.read_text()` and `write_text(text)`: plain text only, through
   Tk where available.
 - `App.shortcuts`: registers browser-rendered shortcuts using `Mod` for
@@ -14,7 +16,8 @@ Native APIs are explicit and only work inside a supported desktop runtime.
   pywebview backend supports them. GTK does not support the native menu API.
 
 Run `novaui run examples/desktop.py --mode desktop` to see a native open-file
-dialog attached to an explicit button action. Use these APIs from an explicit
+dialog attached to an explicit button action. Folder selection is exposed as
+`ui.dialogs.select_folder()` where the backend supports it. Use these APIs from an explicit
 user action in your own app. Dialog titles are currently not forwarded by
 the pywebview adapter. Clipboard availability depends on Tk and the desktop
 session.

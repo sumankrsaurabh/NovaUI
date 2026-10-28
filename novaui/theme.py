@@ -38,6 +38,8 @@ class Theme:
     appearance: str = "solid"
     glass_blur: int | None = None
     glass_opacity: float | None = None
+    persist: bool = False
+    contrast: str = "normal"
 
     def __post_init__(self) -> None:
         if self.name is not None and (
@@ -45,10 +47,14 @@ class Theme:
             or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", self.name)
         ):
             raise ValueError("Theme name must start with a letter and contain at most 64 letters, digits, or underscores.")
-        if not isinstance(self.mode, str) or self.mode not in {"light", "dark"}:
-            raise ValueError("Theme mode must be 'light' or 'dark'.")
+        if not isinstance(self.mode, str) or self.mode not in {"light", "dark", "system"}:
+            raise ValueError("Theme mode must be 'light', 'dark', or 'system'.")
         if not isinstance(self.appearance, str) or self.appearance not in {"solid", "glass"}:
             raise ValueError("Theme appearance must be 'solid' or 'glass'.")
+        if not isinstance(self.persist, bool):
+            raise TypeError("Theme persist must be a bool.")
+        if not isinstance(self.contrast, str) or self.contrast not in {"normal", "high"}:
+            raise ValueError("Theme contrast must be 'normal' or 'high'.")
         if (self.glass_blur is not None and
                 (not isinstance(self.glass_blur, int) or isinstance(self.glass_blur, bool)
                  or not 0 <= self.glass_blur <= 64)):
@@ -111,6 +117,10 @@ class Theme:
             "mode": self.mode,
             "variables": variables,
         }
+        if self.persist:
+            result["persist"] = True
+        if self.contrast == "high":
+            result["contrast"] = "high"
         if self.appearance == "glass":
             result["appearance"] = self.appearance
             if self.glass_blur is not None:

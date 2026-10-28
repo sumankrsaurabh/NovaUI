@@ -44,6 +44,20 @@ def table_measurement(row_count: int) -> tuple[float, float]:
     return serialization_ms, peak / 1024
 
 
+def tree_measurement(child_count: int) -> tuple[float, float]:
+    application = ui.App(ui.Column(*[ui.Text(f"Item {index}") for index in range(child_count)]))
+    serialization_ms = median_ms_per_operation(
+        lambda _: application.serialize_tree(),
+        iterations=3,
+    )
+    tracemalloc.start()
+    application.serialize_tree()
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    application.dispose()
+    return serialization_ms, peak / 1024
+
+
 def main() -> None:
     children = tuple(ui.Text(f"Item {index}") for index in range(100))
     tree_app = ui.App(ui.Column(*children))
@@ -71,6 +85,9 @@ def main() -> None:
         server.server_close()
 
     print(f"HTTP server bind + close (no browser/thread): {median_ms_per_operation(bind_and_close, iterations=20):.3f} ms/op")
+    for count in (100, 1_000, 5_000):
+        duration, peak_kib = tree_measurement(count)
+        print(f"Component tree serialization, {count} Text children: {duration:.3f} ms/op; traced peak {peak_kib:.1f} KiB")
     for count in (100, 1_000, 5_000):
         duration, peak_kib = table_measurement(count)
         print(f"DataTable serialize, {count} rows / 3 columns / 20-row page: {duration:.3f} ms/op; traced peak {peak_kib:.1f} KiB")

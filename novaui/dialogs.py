@@ -20,3 +20,8 @@ def save_file(
 ) -> str | None:
     """Open a native save picker; do not create or write the selected file."""
     return active_window().save_file(title=title, suggested_name=suggested_name, file_types=file_types)
+
+
+def select_folder(*, title: str | None = None) -> str | None:
+    """Open a native folder picker; return the selected directory or None if cancelled."""
+    return active_window().select_folder(title=title)

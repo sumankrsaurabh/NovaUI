@@ -7,7 +7,7 @@ NovaUI uses a Python declarative API and a browser renderer. The same HTML/CSS/J
 ## Layers
 
 1. **Public API** (`novaui/__init__.py`): ergonomic exports.
-2. **Components** (`novaui/components.py`): component definitions, validated layout/style properties, and JSON-safe serialization.
+2. **Components** (`novaui/components.py`): component definitions, validated layout/style properties, accessible inputs, and JSON-safe serialization.
 3. **State** (`novaui/state.py`): mutable state objects with subscriptions and dependency collection for computed `Text` values.
 4. **Runtime** (`novaui/app.py`, `novaui/server.py`): lifecycle, HTTP endpoints, event registry.
 5. **Frontend** (`novaui/frontend/`): DOM renderer, CSS tokens, event bridge.
@@ -15,13 +15,13 @@ NovaUI uses a Python declarative API and a browser renderer. The same HTML/CSS/J
 7. **Application logic** (`novaui/forms.py`, `novaui/routing.py`, `novaui/shell.py`, `novaui/feedback.py`): Python-side form state/validation, route matching, layout compositions, and event-backed feedback controls. `Scaffold` serializes a screen body, top bar, brand, floating action, and route destinations; CSS adapts one navigation list to a desktop sidebar, tablet icon rail, or mobile bottom bar.
 8. **Native adapters** (`novaui/dialogs.py`, `novaui/clipboard.py`, `novaui/window.py`, `novaui/shortcuts.py`): explicit desktop-only OS access and per-application shortcut registrations.
 9. **Developer tooling** (`novaui/cli.py`, `novaui/project.py`): argparse commands, starter templates, project options, and a context-local project root for runtime asset resolution.
-10. **Data components** (`novaui/data_table.py`): validated column definitions and server-owned table interaction state.
+10. **Data and productivity components** (`novaui/data_table.py`, `novaui/data_grid.py`, `novaui/productivity.py`, `novaui/uploads.py`, `novaui/virtual_list.py`): validated tables and editable grids, a windowed text list, registered commands, tree navigation, semantic toolbar/status components, and bounded small-file transfer.
 
 ## Component and layout pipeline
 
 Component instances serialize to a small JSON tree. The browser renderer (`novaui/frontend/app.js`) maps the known component types to DOM elements and updates existing elements by stable ID. `Row` and `Column` use Flexbox, `Grid` uses CSS Grid with responsive integer-column presets, `Wrap` uses wrapping Flexbox, `ScrollView` uses overflow scrolling, and `Stack` overlays children in one grid cell. `Container`, `Card`, and `Center` provide box, surface, and centering behavior.
 
-Shared visual properties serialize as style tokens and are applied with DOM `style` APIs. The Python layer validates class names, common CSS lengths, and a constrained style-property allowlist; it rejects CSS URL and expression values. `Theme` serializes its validated mode, primary color, radius, font family, and optional semantic palette overrides into an allowlist of CSS variables. Omitted palette values preserve the built-in light/dark defaults. The server never evaluates browser-supplied code.
+Shared visual properties serialize as style tokens and are applied with DOM `style` APIs. The Python layer validates class names, common CSS lengths, and a constrained style-property allowlist; it rejects CSS URL and expression values. `Theme` serializes its validated mode, primary color, radius, font family, contrast preference, and optional semantic palette overrides into an allowlist of CSS variables. Omitted palette values preserve the built-in light/dark defaults. The server never evaluates browser-supplied code.
 
 `Router.to_dict()` provides its active path through a short-lived `ContextVar` while serializing the selected page. A nested `Scaffold` reads that path to mark the active destination; its navigation buttons still send only registered opaque event IDs through the normal event bridge. A standalone scaffold may specify `current_path`, but route navigation requires the application root to be a `Router`.
 
@@ -54,7 +54,7 @@ The CLI runs the same Python entry point through `runpy`; it does not implement 
 
 ## Data table
 
-`DataTable` validates its `ColumnDef` objects and row mappings during serialization. It applies sort, search, per-column filters, selection, and pagination in Python, then sends only the visible page's formatted cell strings and registered opaque event IDs to the renderer. A `State[list[Mapping]]` is re-read whenever a tree is requested. Formatting returns plain scalar text and the frontend sets it with `textContent`; cell formatters cannot inject HTML. Row click and row-action handlers are registered for that tree and are subject to the existing one-shot event lifecycle. Sorting and filtering currently scan the full in-memory dataset; the table has no virtualization and the local Python timings below do not characterize large-dataset browser responsiveness.
+`DataTable` validates its `ColumnDef` objects and row mappings during serialization. It applies sort, search, per-column filters, selection, and pagination in Python, then sends only the visible page's formatted cell strings and registered opaque event IDs to the renderer. CSV export serializes the filtered rows and neutralizes spreadsheet formula prefixes. `DataGrid` uses the same validated columns and data mappings, stores edits in `State` when supplied, and maintains a bounded undo/redo history. Clipboard paste accepts a size-limited rectangular text range, checks the entire range before mutation, and records each cell in undo history. `VirtualList` renders a bounded, fixed-height window of plain-text items; it does not virtualize tables or arbitrary component trees. Command and tree actions are registered as opaque event IDs. `FileUpload` base64-encodes files up to 6,000 bytes to fit the bounded event transport; it is not intended for large file transfer. Sorting and filtering scan the full in-memory dataset; tables and grids are not virtualized.
 
 ## Local Python performance baseline
 
@@ -72,7 +72,7 @@ Run `env PYTHONPATH=. .venv/bin/python benchmarks/runtime.py` to reproduce the f
 
 `novaui/extensions.py` provides explicit extension configuration. Each `App` copies component, theme, and plugin registrations so services and extension names remain app-scoped. `CustomComponent` composes one cached NovaUI component subtree and delegates serialization to the existing known-component renderer; it cannot emit raw markup or script. Named `Theme` instances use the same token serialization as inline themes. Plugins are application-supplied trusted Python objects: setup is run at app construction, runtime hooks run in deterministic order, and start hooks are unwound in reverse order on shutdown or startup failure. Optional version and module checks use the standard library. Entry-point discovery, sandboxing, renderer plugins, and a stable binary/plugin ABI are intentionally absent.
 
-`App.set_theme()` changes the theme used by the next serialized tree, allowing callbacks to switch themes through the existing full-tree event response. The Phase 11 Studio and Admin apps exercise this path. Component metadata is not currently machine-readable, so Studio maintains a curated app-level catalogue. The PyOffice validation app demonstrates native file dialogs and bounded plain-text persistence; NovaUI does not yet provide multiline text editing, charts, or editable grids.
+`App.set_theme()` changes the theme used by the next serialized tree, allowing callbacks to switch themes through the existing full-tree event response. The Phase 11 Studio and Admin apps exercise this path. Component metadata is not currently machine-readable, so Studio maintains a curated app-level catalogue. The PyOffice validation app demonstrates native file dialogs and bounded plain-text persistence; NovaUI provides a textarea but does not yet provide a rich-text editor.
 
 ## Security boundary and limitations
 
@@ -86,19 +86,19 @@ These checks do not provide authentication, per-user sessions, isolation from ot
 - The development server binds to loopback.
 - The renderer is intentionally small; components are not yet fully accessible or production hardened.
 - Visual components support validated integer pixel `width` and `height`; shared min/max constraints and margins accept CSS lengths. Width and height themselves remain integer pixels in this release.
-- Form fields are strings and currently render text, email, password, number, and date inputs. Checkbox, radio, select, textarea, native date object conversion, async callbacks, and persistent settings are not implemented.
-- Router route factories and event handlers run synchronously in bounded server request threads. There is no authentication, production session isolation, or hardened public hosting mode.
-- Dialogs are basic native HTML dialogs; focus restoration and complete assistive-technology behavior need further review. `Toast` and global imperative `ui.confirm()` do not exist.
+- Form fields remain strings and render text, email, password, number, and date inputs. Standalone `TextArea`, `Checkbox`, `Switch`, `Select`, `Slider`, `DatePicker`, `RadioGroup`, and `MultiSelect` controls are available; native date-object conversion and non-string `Form` fields are not implemented.
+- Route factories run synchronously; event handlers may be synchronous or asynchronous and are awaited in bounded server request workers. There is no authentication, production session isolation, or hardened public hosting mode.
+- Dialogs are native HTML dialogs; focus restoration and complete assistive-technology behavior need further review. `Toast` notifications are available through declarative hosts and a bounded `ToastQueue`; global imperative `ui.confirm()` is not implemented.
 - The server still serializes the full tree after each event. The frontend reuses existing DOM nodes, but the protocol does not yet send narrow property patches.
 - `Text` tracks `State.value` reads, caches computed text until a dependency changes, and releases its subscriptions when its owning `App` is disposed. Updates from background Python code are not pushed to browsers without a subsequent tree request.
-- Inputs support `State[str]`, optional `on_change`, text/email/password/number/date types, disabled, and read-only modes. They commit on browser `change`; values are limited to 8,000 characters. `on_change` can return a text error message, which is safely displayed and associated with the field. `Form` validates on change and submit.
+- Inputs support `State[str]`, optional sync/async `on_change`, text/email/password/number/date types, disabled, and read-only modes. They commit on browser `change`; request bodies are bounded by the server. `on_change` can return a text error message, which is safely displayed and associated with the field. `Form` validates on change and submit, including cancellable async field validation.
 - Event request bodies are limited to 16 KiB. Event IDs are single-use and expire when the tree is serialized again. The registry contains handlers for the current tree only.
 - Desktop mode requires a platform webview backend in addition to pywebview. Linux users can install the optional Qt extra; host display and system-library issues remain outside NovaUI's runtime.
 - The tested backend API targets pywebview 6.2; legacy dialog constants are used as a fallback for older supported pywebview releases. Windows WebView2/.NET, macOS Cocoa/WebKit, and Linux GTK/WebKit or Qt/WebEngine dependencies remain OS-managed. No Windows or macOS GUI run has been performed from this environment.
-- Native open/save dialogs return a selected path or `None`; NovaUI never opens or writes the selected path automatically. The current pywebview API has no file-dialog title option. Clipboard support is text-only through Tk and depends on a working desktop clipboard service. Native menus are not supported by GTK; context menus, app icons, and notifications are not included.
+- Native open/save/folder dialogs return a selected path or `None`; NovaUI never opens or writes the selected path automatically. The current pywebview API has no file-dialog title option. Clipboard support is text-only through Tk and depends on a working desktop clipboard service. Native menus are not supported by GTK; application icons and native notifications are not included. A shared-renderer `ContextMenu` component is available.
 - `Mod` shortcuts map to Ctrl on Windows/Linux and Meta/Command on macOS. They are ignored in text-entry elements unless explicitly allowed. Browser/OS shortcut conflicts are possible.
 - PyInstaller configuration is a sample and has not been run. A frozen app still relies on platform webview/system libraries and should be built and tested on its target OS.
 
 ## Planned evolution
 
-Next: broader form controls, robust route lifecycle and async callbacks, narrower property-patch delivery, push updates for background state changes, accessibility standards, hot reload, and verified distribution packaging. See `ROADMAP.md`.
+Remaining work includes richer form value types, broader accessibility review, narrower property-patch delivery, push updates for background state changes, hot reload, and verified cross-platform distribution packaging. See `ROADMAP.md`.

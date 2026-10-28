@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 import re
-from collections.abc import Callable, Mapping
+import threading
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -33,6 +36,7 @@ class Field:
         min_value: float | str | None = None,
         max_value: float | str | None = None,
         validator: Callable[[str], str | None] | None = None,
+        async_validator: Callable[[str], Awaitable[str | None]] | None = None,
         disabled: bool = False,
     ):
         if not isinstance(value, str):
@@ -52,6 +56,8 @@ class Field:
             raise ValueError("Field min_length cannot exceed max_length.")
         if validator is not None and not callable(validator):
             raise TypeError("Field validator must be callable or None.")
+        if async_validator is not None and not callable(async_validator):
+            raise TypeError("Field async_validator must be callable or None.")
         for name, bound in (("min_value", min_value), ("max_value", max_value)):
             if bound is not None and (isinstance(bound, bool) or not isinstance(bound, (str, int, float))):
                 raise TypeError(f"Field {name} must be a number, numeric string, or None.")
@@ -76,11 +82,16 @@ class Field:
         self.min_value = min_value
         self.max_value = max_value
         self.validator = validator
+        self.async_validator = async_validator
         self.disabled = disabled
         self._initial_value = value
         self._state: State[str] = state(value)
         self.error: str | None = None
         self.dirty = False
+        self._validation_lock = threading.Lock()
+        self._validation_generation = 0
+        self._validation_task: asyncio.Task[Any] | None = None
+        self._validation_loop: asyncio.AbstractEventLoop | None = None
 
     @property
     def value(self) -> str:
@@ -132,14 +143,90 @@ class Field:
             return error
         return None
 
+    async def validate_async(self, value: str | None = None) -> str | None:
+        candidate = self.value if value is None else value
+        if not isinstance(candidate, str):
+            raise TypeError("Field values must be strings.")
+        error = self.validate(candidate)
+        if error is not None:
+            self.cancel_validation()
+            self.error = error
+            return error
+        if self.async_validator is None:
+            self.error = None
+            return None
+        return await self._run_async_validator(candidate)
+
+    async def _run_async_validator(self, candidate: str) -> str | None:
+        loop = asyncio.get_running_loop()
+        task = asyncio.current_task()
+        if task is None:
+            raise RuntimeError("Async field validation requires an active task.")
+        with self._validation_lock:
+            self._validation_generation += 1
+            generation = self._validation_generation
+            previous_task, previous_loop = self._validation_task, self._validation_loop
+            self._validation_task, self._validation_loop = task, loop
+        self._cancel_task(previous_task, previous_loop)
+
+        try:
+            result = self.async_validator(candidate)
+            error = await result if inspect.isawaitable(result) else result
+            if error is not None and not isinstance(error, str):
+                raise TypeError("Field async_validator must return an error string or None.")
+        except asyncio.CancelledError:
+            with self._validation_lock:
+                current = generation == self._validation_generation
+            if current:
+                self.error = "Validation was cancelled."
+        except Exception as exc:  # noqa: BLE001 - async validators must not leak private errors.
+            with self._validation_lock:
+                current = generation == self._validation_generation
+            if current:
+                _logger.error("NovaUI async field validator failed with %s", type(exc).__name__)
+                self.error = "Could not validate this field."
+        else:
+            with self._validation_lock:
+                current = generation == self._validation_generation
+            if current and self.value == candidate:
+                self.error = error
+        finally:
+            with self._validation_lock:
+                if self._validation_task is task:
+                    self._validation_task = None
+                    self._validation_loop = None
+        return self.error
+
+    @staticmethod
+    def _cancel_task(task: asyncio.Task[Any] | None, loop: asyncio.AbstractEventLoop | None) -> None:
+        if task is None or task.done() or loop is None or loop.is_closed():
+            return
+        loop.call_soon_threadsafe(task.cancel)
+
+    def cancel_validation(self) -> None:
+        with self._validation_lock:
+            self._validation_generation += 1
+            task, loop = self._validation_task, self._validation_loop
+            self._validation_task = None
+            self._validation_loop = None
+        self._cancel_task(task, loop)
+
     def reset(self) -> None:
+        self.cancel_validation()
         self._state.update(self._initial_value)
         self.error = None
         self.dirty = False
 
-    def _on_change(self, value: str) -> str | None:
+    def dispose(self) -> None:
+        self.cancel_validation()
+        self._state.dispose()
+
+    def _on_change(self, value: str) -> str | None | Awaitable[str | None]:
         self.dirty = value != self._initial_value
         self.error = self.validate(value)
+        if self.error is None and self.async_validator is not None:
+            return self._run_async_validator(value)
+        self.cancel_validation()
         return self.error
 
 
@@ -149,8 +236,8 @@ class _SubmitBinding:
     def __init__(self, form: Form):
         self.form = form
 
-    def __call__(self, values: dict[str, str]) -> None:
-        self.form.submit(values)
+    def __call__(self, values: dict[str, str]) -> Any:
+        return self.form.submit(values)
 
 
 class Form(Component):
@@ -165,6 +252,7 @@ class Form(Component):
         reset_label: str | None = "Reset",
         disabled: bool = False,
         loading: bool = False,
+        validators: Mapping[str, Callable[[Mapping[str, str]], str | None]] | None = None,
         **props: Any,
     ):
         super().__init__(**props)
@@ -184,7 +272,17 @@ class Form(Component):
                 raise ValueError(f"Invalid form field name: {name!r}.")
             if not isinstance(field, Field):
                 raise TypeError(f"Form field {name!r} must be a Field instance.")
+        if validators is None:
+            validators = {}
+        if not isinstance(validators, Mapping):
+            raise TypeError("Form validators must map field names to validation callbacks.")
+        for name, validator in validators.items():
+            if name not in self.fields:
+                raise ValueError(f"Cross-field validator target {name!r} is not a form field.")
+            if not callable(validator):
+                raise TypeError(f"Cross-field validator for {name!r} must be callable.")
         self.on_submit = on_submit
+        self.validators = dict(validators)
         self.submit_label = submit_label
         self.reset_label = reset_label
         self.disabled = disabled
@@ -214,7 +312,7 @@ class Form(Component):
 
     def dispose(self) -> None:
         for field in self.fields.values():
-            field._state.dispose()
+            field.dispose()
 
     @property
     def values(self) -> dict[str, str]:
@@ -232,6 +330,18 @@ class Form(Component):
         valid = True
         for name, field in self.fields.items():
             field.error = None if field.disabled else field.validate()
+        values = self.values
+        for name, validator in self.validators.items():
+            if not self.fields[name].disabled and self.fields[name].error is None:
+                try:
+                    error = validator(values)
+                except Exception as exc:  # noqa: BLE001 - validation errors must not leak details.
+                    _logger.error("NovaUI cross-field validator failed with %s", type(exc).__name__)
+                    error = "Could not validate this field."
+                if error is not None and not isinstance(error, str):
+                    raise TypeError("Cross-field validators must return an error string or None.")
+                self.fields[name].error = error
+        for name, field in self.fields.items():
             self._inputs[name].error = field.error
             valid = valid and field.error is None
         return valid
@@ -243,7 +353,7 @@ class Form(Component):
         self.status = ""
         self.is_submitting = False
 
-    def submit(self, values: dict[str, str]) -> None:
+    def submit(self, values: dict[str, str]) -> Any:
         if self.disabled or self.loading or self.is_submitting:
             return
         if not isinstance(values, dict) or any(
@@ -258,13 +368,71 @@ class Form(Component):
             return
         self.is_submitting = True
         self.status = ""
+        if any(field.async_validator is not None and not field.disabled for field in self.fields.values()):
+            return self._finish_async_validated_submission()
         try:
             result = self.on_submit(self.values)
+            if inspect.isawaitable(result):
+                return self._finish_async_submission(result)
             if result is not None and not isinstance(result, str):
                 raise TypeError("Form on_submit must return a string status message or None.")
             self.status = result or "Submitted successfully."
         except Exception as exc:  # noqa: BLE001 - convert callback errors into safe form status.
             _logger.error("NovaUI form submission failed with %s", type(exc).__name__)
+            self.status = "Submission failed. Please try again."
+        finally:
+            if not inspect.isawaitable(locals().get("result")):
+                self.is_submitting = False
+
+    async def _finish_async_validated_submission(self) -> None:
+        try:
+            for name, field in self.fields.items():
+                if field.disabled or field.async_validator is None:
+                    continue
+                field.error = await field._run_async_validator(field.value)
+                self._inputs[name].error = field.error
+
+            values = self.values
+            for name, validator in self.validators.items():
+                field = self.fields[name]
+                if field.disabled or field.error is not None:
+                    continue
+                try:
+                    error = validator(values)
+                except Exception as exc:  # noqa: BLE001 - validation errors must not leak details.
+                    _logger.error("NovaUI cross-field validator failed with %s", type(exc).__name__)
+                    error = "Could not validate this field."
+                if error is not None and not isinstance(error, str):
+                    raise TypeError("Cross-field validators must return an error string or None.")
+                field.error = error
+                self._inputs[name].error = error
+
+            if self.errors:
+                self.status = "Please fix the highlighted fields."
+                return
+
+            result = self.on_submit(self.values)
+            if inspect.isawaitable(result):
+                result = await result
+            if result is not None and not isinstance(result, str):
+                raise TypeError("Form on_submit must return a string status message or None.")
+            self.status = result or "Submitted successfully."
+        except asyncio.CancelledError:
+            self.status = "Validation was cancelled. Please try again."
+        except Exception as exc:  # noqa: BLE001 - convert validator/callback failures to safe status.
+            _logger.error("NovaUI async form validation or submission failed with %s", type(exc).__name__)
+            self.status = "Submission failed. Please try again."
+        finally:
+            self.is_submitting = False
+
+    async def _finish_async_submission(self, result: Any) -> None:
+        try:
+            message = await result
+            if message is not None and not isinstance(message, str):
+                raise TypeError("Form on_submit must return a string status message or None.")
+            self.status = message or "Submitted successfully."
+        except Exception as exc:  # noqa: BLE001 - convert callback errors into safe form status.
+            _logger.error("NovaUI async form submission failed with %s", type(exc).__name__)
             self.status = "Submission failed. Please try again."
         finally:
             self.is_submitting = False
@@ -287,5 +455,9 @@ class Form(Component):
             "disabled": self.disabled,
             "loading": self.loading or self.is_submitting,
             "status": self.status,
+            "error_summary": [
+                {"name": name, "label": self.fields[name].label or name.replace("_", " ").title(), "message": message}
+                for name, message in self.errors.items()
+            ],
             **self._common_props(),
         }

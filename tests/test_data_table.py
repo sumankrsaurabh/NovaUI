@@ -1,3 +1,5 @@
+import csv
+import io
 import runpy
 from pathlib import Path
 
@@ -94,6 +96,200 @@ def test_column_filter_and_row_action_callbacks():
     assert [row["cells"][0] for row in tree["rows"]] == ["Mina"]
     events[tree["rows"][0]["actions"][0]["event_id"]]()
     assert acted == ["Mina"]
+
+
+def test_column_visibility_retains_one_column_and_hides_cells():
+    table = ui.DataTable(
+        [ui.ColumnDef("name"), ui.ColumnDef("team")],
+        [{"name": "Mina", "team": "Design"}],
+        column_visibility=True,
+    )
+    tree, events = serialize(table)
+    team_toggle = next(item for item in tree["column_controls"] if item["key"] == "team")
+    events[team_toggle["event_id"]]()
+    tree, events = serialize(table)
+    assert [column["key"] for column in tree["columns"]] == ["name"]
+    assert tree["rows"][0]["cells"] == ["Mina"]
+    name_toggle = next(item for item in tree["column_controls"] if item["key"] == "name")
+    assert name_toggle["event_id"] is None
+
+
+def test_csv_export_escapes_cells_and_exports_filtered_rows_not_only_page():
+    table = ui.DataTable(
+        [ui.ColumnDef("name", title="=Name"), ui.ColumnDef("note")],
+        [{"name": "=1+1", "note": 'comma, quote " and newline\n'},
+         {"name": " \t=SUM(1,2)", "note": "Formula-like value"},
+         {"name": "Ari", "note": "Second row"}],
+        page_size=1,
+        exportable=True,
+    )
+    tree, events = serialize(table)
+    events[tree["export_event_id"]]()
+    exported, _ = serialize(table)
+    rows = list(csv.reader(io.StringIO(exported["export_csv"])))
+    assert rows == [
+        ["'=Name", "Note"],
+        ["'=1+1", 'comma, quote " and newline\n'],
+        ["' \t=SUM(1,2)", "Formula-like value"],
+        ["Ari", "Second row"],
+    ]
+
+
+def test_bulk_action_receives_selected_rows_and_mobile_layout_is_configurable():
+    selected = []
+    table = ui.DataTable(
+        [ui.ColumnDef("name")],
+        [{"name": "Mina"}, {"name": "Noah"}],
+        selectable=True,
+        bulk_actions=[ui.BulkAction("Archive", selected.append)],
+        mobile_layout="table",
+    )
+    tree, events = serialize(table)
+    events[tree["rows"][1]["select_event_id"]]()
+    tree, events = serialize(table)
+    assert tree["mobile_layout"] == "table"
+    events[tree["bulk_actions"][0]["event_id"]]()
+    assert selected == [[{"name": "Noah"}]]
+
+
+def test_data_grid_edits_state_and_supports_undo_redo():
+    rows = ui.state([{"name": "Ari"}, {"name": "Bea"}])
+    changes = []
+    grid = ui.DataGrid([ui.ColumnDef("name")], rows, on_change=changes.append)
+    tree, events = serialize(grid)
+    events[tree["rows"][0]["cells"][0]["event_id"]]("Ari edited")
+    assert rows.value == [{"name": "Ari edited"}, {"name": "Bea"}]
+    assert changes[-1] == rows.value
+
+    tree, events = serialize(grid)
+    assert tree["rows"][0]["cells"][0]["value"] == "Ari edited"
+    events[tree["undo_event_id"]]()
+    assert rows.value[0]["name"] == "Ari"
+
+    tree, events = serialize(grid)
+    events[tree["redo_event_id"]]()
+    assert rows.value[0]["name"] == "Ari edited"
+
+
+def test_data_grid_clears_stale_history_after_external_data_change():
+    rows = ui.state([{"name": "Ari"}])
+    grid = ui.DataGrid([ui.ColumnDef("name")], rows)
+    tree, events = serialize(grid)
+    events[tree["rows"][0]["cells"][0]["event_id"]]("Ari edited")
+    rows.value = [{"name": "Bea"}]
+
+    tree, events = serialize(grid)
+    with pytest.raises(ValueError, match="underlying data changed"):
+        events[tree["undo_event_id"]]()
+    assert serialize(grid)[0]["undo_event_id"] is None
+
+
+def test_data_grid_keeps_undo_history_when_change_callback_fails():
+    calls = 0
+
+    def fail(_rows):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("application callback failed")
+
+    grid = ui.DataGrid([ui.ColumnDef("name")], [{"name": "Ari"}], on_change=fail)
+    tree, events = serialize(grid)
+    with pytest.raises(RuntimeError, match="callback failed"):
+        events[tree["rows"][0]["cells"][0]["event_id"]]("Ari edited")
+    tree, events = serialize(grid)
+    events[tree["undo_event_id"]]()
+    assert serialize(grid)[0]["rows"][0]["cells"][0]["value"] == "Ari"
+
+
+def test_data_grid_rejects_irreversible_formatter_on_editable_column():
+    grid = ui.DataGrid(
+        [ui.ColumnDef("amount", formatter=lambda value, row: f"${value}")],
+        [{"amount": 10}],
+    )
+    with pytest.raises(ValueError, match="cannot use formatters"):
+        serialize(grid)
+
+
+def test_data_grid_pastes_rectangular_text_and_undoes_each_cell():
+    rows = ui.state([{"name": "Ari", "team": "Design"}, {"name": "Bea", "team": "Data"}])
+    changes = []
+    grid = ui.DataGrid(
+        [ui.ColumnDef("name"), ui.ColumnDef("team")],
+        rows,
+        on_change=changes.append,
+    )
+    tree, events = serialize(grid)
+
+    events[tree["rows"][0]["cells"][0]["paste_event_id"]]("Ari A\tEngineering\nBea B\tResearch")
+
+    assert rows.value == [
+        {"name": "Ari A", "team": "Engineering"},
+        {"name": "Bea B", "team": "Research"},
+    ]
+    assert changes == [rows.value]
+    for _ in range(4):
+        tree, events = serialize(grid)
+        events[tree["undo_event_id"]]()
+    assert rows.value == [{"name": "Ari", "team": "Design"}, {"name": "Bea", "team": "Data"}]
+    for _ in range(4):
+        tree, events = serialize(grid)
+        events[tree["redo_event_id"]]()
+    assert rows.value == [
+        {"name": "Ari A", "team": "Engineering"},
+        {"name": "Bea B", "team": "Research"},
+    ]
+
+
+@pytest.mark.parametrize(
+    "paste, column_index, message",
+    [
+        ("one\ttwo\nthree", 0, "rectangular"),
+        ("one\ttwo", 1, "beyond"),
+    ],
+)
+def test_data_grid_rejects_invalid_paste_without_partial_changes(paste, column_index, message):
+    rows = ui.state([{"name": "Ari", "team": "Design"}])
+    grid = ui.DataGrid([ui.ColumnDef("name"), ui.ColumnDef("team")], rows)
+    tree, events = serialize(grid)
+    with pytest.raises(ValueError, match=message):
+        events[tree["rows"][0]["cells"][column_index]["paste_event_id"]](paste)
+    assert rows.value == [{"name": "Ari", "team": "Design"}]
+
+
+def test_data_grid_paste_checks_json_encoded_transport_size():
+    grid = ui.DataGrid([ui.ColumnDef("name")], [{"name": "Ari"}])
+    tree, events = serialize(grid)
+    with pytest.raises(ValueError, match="16 KiB"):
+        events[tree["rows"][0]["cells"][0]["paste_event_id"]]("\x00" * 3000)
+
+
+def test_data_grid_static_data_edits_and_restricts_editable_columns():
+    grid = ui.DataGrid(
+        [ui.ColumnDef("name"), ui.ColumnDef("team")],
+        [{"name": "Mina", "team": "Design"}],
+        editable_columns=["team"],
+    )
+    tree, events = serialize(grid)
+    assert tree["rows"][0]["cells"][0]["editable"] is False
+    assert tree["rows"][0]["cells"][1]["editable"] is True
+    events[tree["rows"][0]["cells"][1]["event_id"]]("Product")
+    tree, _ = serialize(grid)
+    assert tree["rows"][0]["cells"][1]["value"] == "Product"
+
+
+@pytest.mark.parametrize(
+    "columns,data,options",
+    [
+        ([], [], {}),
+        ([ui.ColumnDef("missing")], [{"name": "Ari"}], {}),
+        ([ui.ColumnDef("name")], [{"name": "Ari"}], {"editable": 1}),
+        ([ui.ColumnDef("name")], [{"name": "Ari"}], {"editable_columns": ["team"]}),
+    ],
+)
+def test_data_grid_rejects_invalid_definitions(columns, data, options):
+    with pytest.raises((TypeError, ValueError)):
+        serialize(ui.DataGrid(columns, data, **options))
 
 
 def test_table_filter_event_dispatch_uses_registered_value_handler():

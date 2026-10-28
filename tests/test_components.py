@@ -225,6 +225,12 @@ def test_component_id_is_stable_across_serialization():
 def test_app_accepts_supported_themes_and_rejects_unknown_theme():
     assert ui.App(ui.Text("light"), theme="light").serialize_tree()["theme"] == "light"
     assert ui.App(ui.Text("dark"), theme="dark").serialize_tree()["theme"] == "dark"
+    assert ui.App(ui.Text("system"), theme="system").serialize_tree()["theme"] == "system"
+    assert ui.App(ui.Text("system"), theme=ui.Theme(mode="system")).serialize_tree()["theme"]["mode"] == "system"
+    assert ui.App(ui.Text("persist"), theme=ui.Theme(persist=True)).serialize_tree()["theme"]["persist"] is True
+    assert ui.App(ui.Text("contrast"), theme=ui.Theme(contrast="high")).serialize_tree()["theme"]["contrast"] == "high"
+    with pytest.raises(ValueError, match="contrast"):
+        ui.Theme(contrast="maximum")
     with pytest.raises(ValueError, match="theme"):
         ui.App(ui.Text("invalid"), theme="blue")
 
@@ -336,6 +342,255 @@ def test_layout_components_serialize_nested_and_empty_children():
     assert ui.Grid().to_dict(lambda callback: "unused")["children"] == []
 
 
+def test_grid_accepts_validated_breakpoint_column_counts():
+    tree = ui.Grid(columns=4, tablet_columns=2, mobile_columns=1).to_dict(lambda callback: "unused")
+    assert tree["column_count"] == 4
+    assert tree["tablet_columns"] == 2
+    assert tree["mobile_columns"] == 1
+    with pytest.raises(ValueError, match="mobile_columns"):
+        ui.Grid(columns=3, mobile_columns=0).to_dict(lambda callback: "unused")
+    with pytest.raises(ValueError, match="integer base"):
+        ui.Grid(columns="repeat(2, 1fr)", mobile_columns=1).to_dict(lambda callback: "unused")
+
+
+def test_split_pane_serializes_resizable_panels_and_validates_bounds():
+    tree = ui.SplitPane(ui.Text("First"), ui.Text("Second"), initial_percent=40).to_dict(lambda callback: "unused")
+    assert tree["type"] == "split_pane"
+    assert tree["orientation"] == "horizontal"
+    assert tree["initial_percent"] == 40
+    assert [child["text"] for child in tree["children"]] == ["First", "Second"]
+    with pytest.raises(ValueError, match="orientation"):
+        ui.SplitPane(ui.Text("First"), ui.Text("Second"), orientation="diagonal")
+    with pytest.raises(ValueError, match="between"):
+        ui.SplitPane(ui.Text("First"), ui.Text("Second"), initial_percent=90)
+
+
+def test_number_field_applies_numeric_input_type_and_step_validation():
+    number_field = ui.NumberField(min_value=0, max_value=10, step=0.5, label="Amount")
+    tree = number_field.to_dict(lambda callback: "unused")
+    assert tree["input_type"] == "number"
+    assert tree["min_value"] == "0"
+    assert tree["max_value"] == "10"
+    assert tree["step"] == "0.5"
+    with pytest.raises(ValueError, match="positive finite"):
+        ui.NumberField(step=0).to_dict(lambda callback: "unused")
+
+
+def test_search_field_serializes_clear_and_submit_actions():
+    submitted = []
+    search = ui.SearchField(value="query", on_submit=submitted.append)
+    application = ui.App(search)
+    tree = application.serialize_tree()["root"]
+    assert tree["type"] == "search_field"
+    assert tree["children"][0]["input_type"] == "search"
+    application.dispatch_event(tree["clear_event_id"])
+    assert search._value.value == ""
+    tree = application.serialize_tree()["root"]
+    search._value.update("NovaUI")
+    tree = application.serialize_tree()["root"]
+    application.dispatch_event(tree["submit_event_id"])
+    assert submitted == ["NovaUI"]
+    application.dispose()
+
+
+def test_disabled_search_and_radio_controls_register_no_events():
+    search = ui.SearchField(value="query", on_submit=lambda value: None, disabled=True)
+    search_tree = search.to_dict(lambda callback: pytest.fail("disabled search registered an event"))
+    assert search_tree["submit_event_id"] is None
+    assert search_tree["clear_event_id"] is None
+
+    radio = ui.RadioGroup({"First": "first"}, label="Choose", disabled=True)
+    radio_tree = radio.to_dict(lambda callback: pytest.fail("disabled radio registered an event"))
+    assert radio_tree["options"][0]["event_id"] is None
+
+    multi = ui.MultiSelect({"First": "first"}, label="Choose", disabled=True)
+    multi_tree = multi.to_dict(lambda callback: pytest.fail("disabled multiselect registered an event"))
+    assert multi_tree["event_id"] is None
+
+
+def test_text_area_checkbox_and_select_dispatch_validated_values():
+    changed = []
+    text_area = ui.TextArea("draft", label="Notes", on_change=lambda value: changed.append(value))
+    checkbox = ui.Checkbox("Accept terms", on_change=lambda value: changed.append(value))
+    select = ui.Select(
+        {"Small": "small", "Large": "large"},
+        label="Size",
+        value="small",
+        on_change=lambda value: changed.append(value),
+    )
+    application = ui.App(ui.Column(text_area, checkbox, select))
+    tree = application.serialize_tree()["root"]["children"]
+
+    application.dispatch_event(tree[0]["event_id"], "updated notes")
+    application.dispatch_event(tree[1]["event_id"], "true")
+    application.dispatch_event(tree[2]["event_id"], "large")
+
+    updated = application.serialize_tree()["root"]["children"]
+    assert updated[0]["value"] == "updated notes"
+    assert updated[1]["checked"] is True
+    assert updated[2]["value"] == "large"
+    assert changed == ["updated notes", True, "large"]
+    application.dispose()
+
+
+def test_text_area_checkbox_and_select_reject_invalid_configuration_and_events():
+    with pytest.raises(ValueError, match="accessible name"):
+        ui.TextArea(label=" ")
+    with pytest.raises(ValueError, match="rows"):
+        ui.TextArea(label="Notes", rows=0)
+    with pytest.raises(TypeError, match="bool"):
+        ui.Checkbox("Enabled", value="yes")
+    with pytest.raises(ValueError, match="match one"):
+        ui.Select({"One": "one"}, label="Choice", value="missing")
+
+    select = ui.Select({"One": "one"}, label="Choice")
+    app = ui.App(select)
+    event_id = app.serialize_tree()["root"]["event_id"]
+    with pytest.raises(ValueError, match="match one"):
+        app.dispatch_event(event_id, "missing")
+    assert select._value.value == "one"
+    app.dispose()
+
+    text_area = ui.TextArea(label="Notes", max_length=3)
+    app = ui.App(text_area)
+    with pytest.raises(ValueError, match="max_length"):
+        app.dispatch_event(app.serialize_tree()["root"]["event_id"], "four")
+    app.dispose()
+
+
+def test_switch_slider_and_date_picker_serialize_and_validate_events():
+    changed = []
+    switch = ui.Switch("Notifications", value=False, on_change=changed.append)
+    slider = ui.Slider(0.5, label="Volume", min_value=0, max_value=1, step=0.1, on_change=changed.append)
+    date_picker = ui.DatePicker("2026-10-28", label="Start date")
+    app = ui.App(ui.Column(switch, slider, date_picker))
+    tree = app.serialize_tree()["root"]["children"]
+
+    app.dispatch_event(tree[0]["event_id"], "true")
+    app.dispatch_event(tree[1]["event_id"], "0.7")
+    updated = app.serialize_tree()["root"]["children"]
+
+    assert updated[0]["type"] == "switch"
+    assert updated[0]["checked"] is True
+    assert updated[1]["value"] == pytest.approx(0.7)
+    assert updated[2]["input_type"] == "date"
+    assert changed == [True, pytest.approx(0.7)]
+
+    slider_event = updated[1]["event_id"]
+    with pytest.raises(ValueError, match="within its configured range"):
+        app.dispatch_event(slider_event, "1.1")
+    with pytest.raises(ValueError, match="configured step"):
+        app.dispatch_event(slider_event, "0.75")
+    with pytest.raises(ValueError, match="ISO date"):
+        ui.DatePicker("20261028").to_dict(lambda callback: "unused")
+    app.dispose()
+
+
+def test_slider_rejects_invalid_ranges_steps_and_values():
+    with pytest.raises(ValueError, match="less than"):
+        ui.Slider(label="Volume", min_value=1, max_value=1)
+    with pytest.raises(ValueError, match="step"):
+        ui.Slider(label="Volume", step=0)
+    with pytest.raises(ValueError, match="within"):
+        ui.Slider(11, label="Volume", max_value=10)
+
+
+def test_dropdown_and_tooltip_validate_and_serialize_their_children():
+    dropdown = ui.Dropdown("More options", ui.Text("Details"), open=True)
+    tooltip = ui.Tooltip(ui.Button("Help"), "More about this action")
+    dropdown_tree = dropdown.to_dict(lambda callback: "unused")
+    tooltip_tree = tooltip.to_dict(lambda callback: "unused")
+
+    assert dropdown_tree["type"] == "dropdown"
+    assert dropdown_tree["open"] is True
+    assert dropdown_tree["children"][0]["text"] == "Details"
+    assert tooltip_tree["type"] == "tooltip"
+    assert tooltip_tree["text"] == "More about this action"
+    assert tooltip_tree["children"][0]["type"] == "button"
+    with pytest.raises(TypeError, match="Component"):
+        ui.Tooltip("not a component", "description")
+    with pytest.raises(ValueError, match="non-empty"):
+        ui.Dropdown(" ", ui.Text("Details"))
+
+
+def test_context_menu_registers_only_declared_callbacks():
+    actions = []
+    menu = ui.ContextMenu(
+        ui.Text("Canvas"),
+        {"Rename": lambda: actions.append("rename"), "Delete": lambda: actions.append("delete")},
+        label="Canvas actions",
+    )
+    app = ui.App(menu)
+    tree = app.serialize_tree()["root"]
+    assert tree["type"] == "context_menu"
+    assert [action["label"] for action in tree["actions"]] == ["Rename", "Delete"]
+    app.dispatch_event(tree["actions"][0]["event_id"])
+    assert actions == ["rename"]
+    app.dispose()
+
+    with pytest.raises(ValueError, match="non-empty"):
+        ui.ContextMenu(ui.Text("Canvas"), {})
+
+
+def test_virtual_list_serializes_only_overscanned_items_and_updates_window():
+    items = [f"Item {index}" for index in range(10_000)]
+    virtual = ui.VirtualList(items, item_height=20, height=100, overscan=2, label="Records")
+    app = ui.App(virtual)
+    tree = app.serialize_tree()["root"]
+    assert len(tree["items"]) == 9
+    assert tree["items"][0]["text"] == "Item 0"
+    assert tree["bottom_padding"] == (10_000 - 9) * 20
+
+    app.dispatch_event(tree["scroll_event_id"], "5000")
+    tree = app.serialize_tree()["root"]
+    assert tree["start"] == 248
+    assert tree["items"][0]["text"] == "Item 248"
+    assert tree["items"][-1]["text"] == "Item 256"
+    app.dispose()
+
+
+def test_virtual_list_rejects_bad_items_and_scroll_values():
+    with pytest.raises(TypeError, match="sequence of strings"):
+        ui.VirtualList("not a sequence")
+    with pytest.raises(TypeError, match="only strings"):
+        ui.VirtualList(["valid", 1])
+    with pytest.raises(ValueError, match="positive integer"):
+        ui.VirtualList([], item_height=0)
+
+    app = ui.App(ui.VirtualList(["one", "two"], item_height=1, height=1, overscan=0))
+    tree = app.serialize_tree()["root"]
+    with pytest.raises(ValueError, match="non-negative"):
+        app.dispatch_event(tree["scroll_event_id"], "-1")
+    app.dispose()
+
+
+def test_radio_group_updates_owned_state_and_invokes_callback():
+    changed = []
+    radio = ui.RadioGroup({"First": "first", "Second": "second"}, label="Choose", value="first",
+                          on_change=changed.append)
+    application = ui.App(radio)
+    options = application.serialize_tree()["root"]["options"]
+    application.dispatch_event(options[1]["event_id"])
+    assert radio._value.value == "second"
+    assert changed == ["second"]
+    application.dispose()
+
+
+def test_multi_select_validates_browser_values_before_updating_selection():
+    changed = []
+    selected = ui.MultiSelect({"First": "first", "Second": "second"}, label="Choose",
+                              value=["first"], on_change=changed.append)
+    application = ui.App(selected)
+    event_id = application.serialize_tree()["root"]["event_id"]
+    with pytest.raises(ValueError, match="unknown or duplicate"):
+        application.dispatch_event(event_id, '["unknown"]')
+    assert selected._value.value == ["first"]
+    application.dispatch_event(event_id, '["second"]')
+    assert selected._value.value == ["second"]
+    assert changed == [["second"]]
+    application.dispose()
+
+
 def test_grid_and_scroll_view_validate_configuration():
     with pytest.raises(ValueError, match="1 to 12"):
         ui.Grid(columns=0).to_dict(lambda callback: "unused")
@@ -386,3 +641,41 @@ def test_failed_handler_keeps_current_event_available():
     application.dispatch_event(event_id)
 
     assert attempts == ["attempt", "attempt"]
+
+
+def test_async_event_handler_is_awaited_before_dispatch_returns():
+    import asyncio
+
+    observed = []
+
+    async def handler():
+        await asyncio.sleep(0)
+        observed.append("finished")
+
+    application = ui.App(ui.Button("Run", on_click=handler))
+    event_id = application.serialize_tree()["root"]["event_id"]
+
+    application.dispatch_event(event_id)
+
+    assert observed == ["finished"]
+    application.dispose()
+
+
+def test_async_input_handler_receives_value_and_updates_state():
+    import asyncio
+
+    value = ui.state("")
+
+    async def handler(updated):
+        await asyncio.sleep(0)
+        value.update(updated.upper())
+        return "review this value"
+
+    application = ui.App(ui.Input(value=value, on_change=handler))
+    event_id = application.serialize_tree()["root"]["event_id"]
+
+    application.dispatch_event(event_id, "nova")
+
+    assert value.value == "NOVA"
+    assert application.serialize_tree()["root"]["error"] == "review this value"
+    application.dispose()

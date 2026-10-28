@@ -64,3 +64,20 @@ def test_app_disposal_includes_components_on_routes_not_yet_opened():
     field_state = form.fields["name"]._state
     app.dispose()
     assert field_state.is_disposed
+
+
+def test_scaffold_serializes_collapsible_setting():
+    scaffold = ui.Scaffold(
+        ui.Text("Body"),
+        destinations=[ui.NavDestination("Home", "/", icon="home")],
+        collapsible=False,
+    )
+    tree = ui.App(scaffold).serialize_tree()["root"]
+    assert tree["collapsible"] is False
+    with pytest.raises(TypeError, match="collapsible"):
+        ui.Scaffold(ui.Text("Body"), destinations=[ui.NavDestination("Home", "/")], collapsible="yes")
+
+
+def test_sticky_header_helper_uses_sticky_semantic_class():
+    tree = ui.StickyHeader(ui.Text("Toolbar")).to_dict(lambda callback: "unused")
+    assert "nova-sticky-header" in tree["class_name"]

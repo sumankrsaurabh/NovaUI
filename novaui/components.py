@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-import itertools
 import inspect
+import itertools
+import json
+import math
 import re
+from collections.abc import Awaitable, Callable, Mapping
 from contextvars import ContextVar
-from functools import wraps
-from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date
+from functools import wraps
 from pathlib import PurePosixPath
 from typing import Any, ParamSpec, cast
 from urllib.parse import quote
@@ -37,7 +40,7 @@ _ICON_NAMES = frozenset({
     "sun", "moon", "sparkles", "download", "folder", "heart", "clock", "cube",
 })
 _ComponentParams = ParamSpec("_ComponentParams")
-_component_scopes: ContextVar[tuple[list["Component"], ...]] = ContextVar("novaui_component_scopes", default=())
+_component_scopes: ContextVar[tuple[list[Component], ...]] = ContextVar("novaui_component_scopes", default=())
 
 
 def _css_text(value: Any, name: str) -> str:
@@ -184,7 +187,7 @@ def component(function: Callable[_ComponentParams, Component | None]) -> Callabl
             )
         return result
 
-    setattr(build_component, "__novaui_component__", True)
+    build_component.__novaui_component__ = True
     return cast(Callable[_ComponentParams, Component], build_component)
 
 
@@ -224,18 +227,42 @@ class _InputBinding:
     def __init__(self, owner: Input):
         self._owner = owner
 
-    def __call__(self, value: str) -> None:
+    def __call__(self, value: str) -> Any:
         if not isinstance(value, str):
             raise TypeError("Input value must be a string.")
+        if self._owner.disabled or self._owner.read_only:
+            raise ValueError("This input is disabled or read-only.")
+        input_type = self._owner.input_type or ("password" if self._owner.password else "text")
+        if input_type == "date" and value and not _is_iso_date(value):
+            raise ValueError("Date input values must use a valid ISO date.")
         if isinstance(self._owner.value, State):
             self._owner.value.update(value)
         else:
             self._owner.value = value
         if self._owner.on_change is not None:
             error = self._owner.on_change(value)
-            if error is not None and not isinstance(error, str):
-                raise TypeError("Input on_change must return a string error message or None.")
-            self._owner.error = error
+            if inspect.isawaitable(error):
+                async def set_async_error() -> None:
+                    resolved = await error
+                    self._set_error(resolved)
+
+                return set_async_error()
+            self._set_error(error)
+
+    def _set_error(self, error: Any) -> None:
+        if error is not None and not isinstance(error, str):
+            raise TypeError("Input on_change must return a string error message or None.")
+        self._owner.error = error
+
+
+def _is_iso_date(value: str) -> bool:
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return False
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
 
 
 @dataclass
@@ -481,7 +508,7 @@ class Input(Component):
     value: str | State[str] = ""
     password: bool = False
     label: str | None = None
-    on_change: Callable[[str], str | None] | None = None
+    on_change: Callable[[str], str | None | Awaitable[str | None]] | None = None
     disabled: bool = False
     read_only: bool = False
     error: str | None = None
@@ -494,6 +521,7 @@ class Input(Component):
     max_length: int | None = None
     min_value: str | int | float | None = None
     max_value: str | int | float | None = None
+    step: int | float | str | None = None
 
     def to_dict(self, register_event):
         dimensions = _dimension_props(self)
@@ -506,8 +534,8 @@ class Input(Component):
         if not isinstance(self.required, bool):
             raise TypeError("Input required must be a bool.")
         input_type = "password" if self.password else (self.input_type or "text")
-        if input_type not in {"text", "email", "password", "number", "date"}:
-            raise ValueError("Input input_type must be text, email, password, number, or date.")
+        if input_type not in {"text", "email", "password", "number", "date", "search"}:
+            raise ValueError("Input input_type must be text, email, password, number, date, or search.")
         if self.password and self.input_type not in {None, "password"}:
             raise ValueError("Input password=True cannot be combined with a different input_type.")
         if self.name is not None and (
@@ -539,6 +567,13 @@ class Input(Component):
                         raise ValueError(f"Input {name} must be finite.")
             if self.min_value is not None and self.max_value is not None and float(self.min_value) > float(self.max_value):
                 raise ValueError("Input min_value cannot exceed max_value.")
+            if self.step is not None and self.step != "any" and (
+                isinstance(self.step, bool) or not isinstance(self.step, (int, float))
+                or not float("-inf") < float(self.step) < float("inf") or self.step <= 0
+            ):
+                raise ValueError("Input step must be a positive finite number, 'any', or None.")
+        elif self.step is not None:
+            raise ValueError("Input step requires input_type='number'.")
         if isinstance(self.value, State):
             current_value = self.value.value
             if not isinstance(current_value, str):
@@ -547,6 +582,8 @@ class Input(Component):
             current_value = self.value
         else:
             raise TypeError("Input value must be a string or State[str].")
+        if input_type == "date" and current_value and not _is_iso_date(current_value):
+            raise ValueError("Input date value must use a valid ISO date.")
         if self.on_change is not None and not callable(self.on_change):
             raise TypeError("Input on_change must be callable.")
         if self.error is not None and not isinstance(self.error, str):
@@ -561,8 +598,694 @@ class Input(Component):
                 "min_length": self.min_length, "max_length": self.max_length,
                 "min_value": str(self.min_value) if self.min_value is not None else None,
                 "max_value": str(self.max_value) if self.max_value is not None else None,
+                "step": str(self.step) if self.step is not None else None,
                 "event_id": event_id, "disabled": self.disabled, "read_only": self.read_only,
                 "error": self.error, **dimensions, **self._common_props()}
+
+
+def NumberField(
+    value: str | State[str] = "",
+    *,
+    label: str | None = None,
+    min_value: str | float | None = None,
+    max_value: str | float | None = None,
+    step: float | str = 1,
+    **props: Any,
+) -> Input:
+    """Create a validated numeric Input with explicit bounds and step."""
+    input_type = props.pop("input_type", "number")
+    if input_type != "number":
+        raise ValueError("NumberField input_type is always 'number'.")
+    return Input(
+        label=label,
+        value=value,
+        min_value=min_value,
+        max_value=max_value,
+        step=step,
+        input_type="number",
+        **props,
+    )
+
+
+class _SearchAction:
+    def __init__(self, owner: SearchField, *, clear: bool):
+        self.owner = owner
+        self.clear = clear
+
+    def __call__(self) -> Any:
+        if self.owner.disabled:
+            raise ValueError("This search field is disabled.")
+        if self.clear:
+            self.owner._value.update("")
+            return None
+        return self.owner.on_submit(self.owner._value.value)
+
+
+class SearchField(Component):
+    """Search input with explicit clear and submit actions."""
+
+    def __init__(
+        self,
+        *,
+        on_submit: Callable[[str], Any],
+        value: str | State[str] = "",
+        label: str = "Search",
+        placeholder: str = "Search",
+        on_change: Callable[[str], str | None | Awaitable[str | None]] | None = None,
+        disabled: bool = False,
+        **props: Any,
+    ):
+        super().__init__(**props)
+        if not callable(on_submit):
+            raise TypeError("SearchField on_submit must be callable.")
+        if not isinstance(label, str) or not label.strip():
+            raise ValueError("SearchField label must be a non-empty string.")
+        if not isinstance(placeholder, str):
+            raise TypeError("SearchField placeholder must be a string.")
+        if not isinstance(disabled, bool):
+            raise TypeError("SearchField disabled must be a bool.")
+        if not isinstance(value, (str, State)):
+            raise TypeError("SearchField value must be a string or State[str].")
+        self._owns_state = isinstance(value, str)
+        self._value = State(value) if isinstance(value, str) else value
+        if not isinstance(self._value.value, str):
+            raise TypeError("SearchField state must contain a string.")
+        self.on_submit = on_submit
+        self.disabled = disabled
+        self.input = Input(
+            label=label,
+            placeholder=placeholder,
+            value=self._value,
+            input_type="search",
+            disabled=disabled,
+            on_change=on_change,
+        )
+        self._clear_action = _SearchAction(self, clear=True)
+        self._submit_action = _SearchAction(self, clear=False)
+
+    def iter_children(self) -> tuple[Component, ...]:
+        return (self.input,)
+
+    def dispose(self) -> None:
+        if self._owns_state:
+            self._value.dispose()
+
+    def to_dict(self, register_event):
+        return {
+            "id": self._node_id(),
+            "type": "search_field",
+            "children": [self.input.to_dict(register_event)],
+            "clear_event_id": register_event(self._clear_action)
+            if self._value.value and not self.disabled else None,
+            "submit_event_id": register_event(self._submit_action) if not self.disabled else None,
+            "disabled": self.disabled,
+            **self._common_props(),
+        }
+
+
+def _choice_options(options: Mapping[str, str]) -> tuple[tuple[str, str], ...]:
+    if not isinstance(options, Mapping) or not options:
+        raise ValueError("Choice options must be a non-empty mapping of labels to values.")
+    normalized = tuple(options.items())
+    values: set[str] = set()
+    for label, value in normalized:
+        if not isinstance(label, str) or not label.strip() or not isinstance(value, str) or not value:
+            raise ValueError("Choice option labels and values must be non-empty strings.")
+        if value in values:
+            raise ValueError("Choice option values must be unique.")
+        values.add(value)
+    return normalized
+
+
+class _RadioChoice:
+    accepts_value = False
+
+    def __init__(self, owner: RadioGroup, value: str):
+        self.owner = owner
+        self.value = value
+
+    def __call__(self) -> Any:
+        if self.owner.disabled:
+            raise ValueError("This radio group is disabled.")
+        self.owner._value.update(self.value)
+        if self.owner.on_change is not None:
+            return self.owner.on_change(self.value)
+        return None
+
+
+class RadioGroup(Component):
+    """Accessible single-choice radio group."""
+
+    def __init__(
+        self,
+        options: Mapping[str, str],
+        *,
+        value: str | State[str] = "",
+        label: str,
+        on_change: Callable[[str], Any] | None = None,
+        disabled: bool = False,
+        **props: Any,
+    ):
+        super().__init__(**props)
+        if not isinstance(label, str) or not label.strip():
+            raise ValueError("RadioGroup label must be a non-empty string.")
+        if not isinstance(disabled, bool):
+            raise TypeError("RadioGroup disabled must be a bool.")
+        self.options = _choice_options(options)
+        self._owns_state = isinstance(value, str)
+        self._value = State(value) if isinstance(value, str) else value
+        if not isinstance(self._value, State) or not isinstance(self._value.value, str):
+            raise TypeError("RadioGroup value must be a string or State[str].")
+        if self._value.value and self._value.value not in {option for _, option in self.options}:
+            raise ValueError("RadioGroup value must match one of its option values or be empty.")
+        if on_change is not None and not callable(on_change):
+            raise TypeError("RadioGroup on_change must be callable or None.")
+        self.label = label.strip()
+        self.on_change = on_change
+        self.disabled = disabled
+        self._actions = tuple(_RadioChoice(self, option) for _, option in self.options)
+
+    def dispose(self) -> None:
+        if self._owns_state:
+            self._value.dispose()
+
+    def to_dict(self, register_event):
+        return {
+            "id": self._node_id(),
+            "type": "radio_group",
+            "label": self.label,
+            "value": self._value.value,
+            "disabled": self.disabled,
+            "options": [
+                {
+                    "label": label,
+                    "value": value,
+                    "event_id": register_event(action) if not self.disabled else None,
+                }
+                for (label, value), action in zip(self.options, self._actions, strict=True)
+            ],
+            **self._common_props(),
+        }
+
+
+class _MultiSelectAction:
+    accepts_value = True
+
+    def __init__(self, owner: MultiSelect):
+        self.owner = owner
+
+    def __call__(self, value: str) -> Any:
+        if self.owner.disabled:
+            raise ValueError("This multi-select is disabled.")
+        try:
+            selected = json.loads(value)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ValueError("MultiSelect values must be a JSON string array.") from exc
+        allowed = {option for _, option in self.owner.options}
+        if (
+            not isinstance(selected, list)
+            or any(not isinstance(item, str) or item not in allowed for item in selected)
+            or len(selected) != len(set(selected))
+        ):
+            raise ValueError("MultiSelect submitted unknown or duplicate option values.")
+        self.owner._value.update(selected)
+        if self.owner.on_change is not None:
+            return self.owner.on_change(selected)
+        return None
+
+
+class MultiSelect(Component):
+    """Accessible multi-choice checkbox group with validated server-owned selection."""
+
+    def __init__(
+        self,
+        options: Mapping[str, str],
+        *,
+        value: list[str] | State[list[str]] | None = None,
+        label: str,
+        on_change: Callable[[list[str]], Any] | None = None,
+        disabled: bool = False,
+        **props: Any,
+    ):
+        super().__init__(**props)
+        if not isinstance(label, str) or not label.strip():
+            raise ValueError("MultiSelect label must be a non-empty string.")
+        if not isinstance(disabled, bool):
+            raise TypeError("MultiSelect disabled must be a bool.")
+        self.options = _choice_options(options)
+        self._owns_state = value is None or isinstance(value, list)
+        initial = [] if value is None else value
+        self._value = State(list(initial)) if isinstance(initial, list) else initial
+        if not isinstance(self._value, State) or not isinstance(self._value.value, list):
+            raise TypeError("MultiSelect value must be a list of strings or State[list[str]].")
+        allowed = {option for _, option in self.options}
+        if any(not isinstance(item, str) or item not in allowed for item in self._value.value):
+            raise ValueError("MultiSelect initial values must match its option values.")
+        if len(self._value.value) != len(set(self._value.value)):
+            raise ValueError("MultiSelect initial values must be unique.")
+        if on_change is not None and not callable(on_change):
+            raise TypeError("MultiSelect on_change must be callable or None.")
+        self.label = label.strip()
+        self.on_change = on_change
+        self.disabled = disabled
+        self._action = _MultiSelectAction(self)
+
+    def dispose(self) -> None:
+        if self._owns_state:
+            self._value.dispose()
+
+    def to_dict(self, register_event):
+        return {
+            "id": self._node_id(),
+            "type": "multi_select",
+            "label": self.label,
+            "selected": list(self._value.value),
+            "disabled": self.disabled,
+            "options": [{"label": label, "value": value} for label, value in self.options],
+            "event_id": register_event(self._action) if not self.disabled else None,
+            **self._common_props(),
+        }
+
+
+class _TextAreaBinding:
+    accepts_value = True
+
+    def __init__(self, owner: TextArea):
+        self.owner = owner
+
+    def __call__(self, value: str) -> Any:
+        if not isinstance(value, str):
+            raise TypeError("TextArea value must be a string.")
+        if self.owner.disabled or self.owner.read_only:
+            raise ValueError("This textarea is disabled or read-only.")
+        if self.owner.max_length is not None and len(value) > self.owner.max_length:
+            raise ValueError("TextArea value exceeds max_length.")
+        self.owner._value.update(value)
+        if self.owner.on_change is not None:
+            return self.owner.on_change(value)
+        return None
+
+
+class TextArea(Component):
+    """Accessible multiline text input with optional reactive state binding."""
+
+    def __init__(
+        self,
+        value: str | State[str] = "",
+        *,
+        label: str,
+        placeholder: str = "",
+        rows: int = 4,
+        max_length: int | None = None,
+        required: bool = False,
+        disabled: bool = False,
+        read_only: bool = False,
+        on_change: Callable[[str], Any] | None = None,
+        **props: Any,
+    ):
+        super().__init__(**props)
+        if not isinstance(label, str) or not label.strip():
+            raise ValueError("TextArea label must be a non-empty accessible name.")
+        if not isinstance(placeholder, str):
+            raise TypeError("TextArea placeholder must be a string.")
+        if isinstance(rows, bool) or not isinstance(rows, int) or not 1 <= rows <= 40:
+            raise ValueError("TextArea rows must be an integer from 1 to 40.")
+        _nonnegative_integer(max_length, "TextArea max_length", optional=True)
+        if not all(isinstance(item, bool) for item in (required, disabled, read_only)):
+            raise TypeError("TextArea required, disabled, and read_only values must be bools.")
+        if on_change is not None and not callable(on_change):
+            raise TypeError("TextArea on_change must be callable or None.")
+        self._owns_state = isinstance(value, str)
+        self._value = State(value) if isinstance(value, str) else value
+        if not isinstance(self._value, State) or not isinstance(self._value.value, str):
+            raise TypeError("TextArea value must be a string or State[str].")
+        self.label = label.strip()
+        self.placeholder = placeholder
+        self.rows = rows
+        self.max_length = max_length
+        self.required = required
+        self.disabled = disabled
+        self.read_only = read_only
+        self.on_change = on_change
+        self._action = _TextAreaBinding(self)
+
+    def dispose(self) -> None:
+        if self._owns_state:
+            self._value.dispose()
+
+    def to_dict(self, register_event):
+        return {
+            "id": self._node_id(),
+            "type": "text_area",
+            "label": self.label,
+            "placeholder": self.placeholder,
+            "value": self._value.value,
+            "rows": self.rows,
+            "max_length": self.max_length,
+            "required": self.required,
+            "disabled": self.disabled,
+            "read_only": self.read_only,
+            "event_id": register_event(self._action) if not self.disabled and not self.read_only else None,
+            **self._common_props(),
+        }
+
+
+class _CheckboxBinding:
+    accepts_value = True
+
+    def __init__(self, owner: Checkbox):
+        self.owner = owner
+
+    def __call__(self, value: str) -> Any:
+        if self.owner.disabled:
+            raise ValueError("This checkbox is disabled.")
+        if value not in {"true", "false"}:
+            raise ValueError("Checkbox value must be 'true' or 'false'.")
+        checked = value == "true"
+        self.owner._value.update(checked)
+        if self.owner.on_change is not None:
+            return self.owner.on_change(checked)
+        return None
+
+
+class Checkbox(Component):
+    """A labeled boolean control with an optional reactive state binding."""
+
+    def __init__(
+        self,
+        label: str,
+        value: bool | State[bool] = False,
+        *,
+        disabled: bool = False,
+        on_change: Callable[[bool], Any] | None = None,
+        **props: Any,
+    ):
+        super().__init__(**props)
+        if not isinstance(label, str) or not label.strip():
+            raise ValueError("Checkbox label must be a non-empty accessible name.")
+        if not isinstance(disabled, bool):
+            raise TypeError("Checkbox disabled must be a bool.")
+        self._owns_state = isinstance(value, bool)
+        self._value = State(value) if isinstance(value, bool) else value
+        if not isinstance(self._value, State) or not isinstance(self._value.value, bool):
+            raise TypeError("Checkbox value must be a bool or State[bool].")
+        if on_change is not None and not callable(on_change):
+            raise TypeError("Checkbox on_change must be callable or None.")
+        self.label = label.strip()
+        self.disabled = disabled
+        self.on_change = on_change
+        self._action = _CheckboxBinding(self)
+
+    def dispose(self) -> None:
+        if self._owns_state:
+            self._value.dispose()
+
+    def to_dict(self, register_event):
+        return {
+            "id": self._node_id(),
+            "type": "checkbox",
+            "label": self.label,
+            "checked": self._value.value,
+            "disabled": self.disabled,
+            "event_id": register_event(self._action) if not self.disabled else None,
+            **self._common_props(),
+        }
+
+
+class Switch(Checkbox):
+    """A labeled boolean toggle rendered with switch semantics."""
+
+    def to_dict(self, register_event):
+        data = super().to_dict(register_event)
+        data["type"] = "switch"
+        return data
+
+
+class _SliderBinding:
+    accepts_value = True
+
+    def __init__(self, owner: Slider):
+        self.owner = owner
+
+    def __call__(self, value: str) -> Any:
+        if self.owner.disabled:
+            raise ValueError("This slider is disabled.")
+        if not isinstance(value, str):
+            raise TypeError("Slider value must be numeric text.")
+        try:
+            number = float(value)
+        except ValueError as exc:
+            raise ValueError("Slider value must be a finite number.") from exc
+        if not math.isfinite(number) or not self.owner.min_value <= number <= self.owner.max_value:
+            raise ValueError("Slider value must be finite and within its configured range.")
+        if self.owner.step != "any":
+            quotient = (number - self.owner.min_value) / float(self.owner.step)
+            if not math.isclose(quotient, round(quotient), rel_tol=0, abs_tol=1e-8):
+                raise ValueError("Slider value does not match the configured step.")
+        self.owner._value.update(number)
+        if self.owner.on_change is not None:
+            return self.owner.on_change(number)
+        return None
+
+
+class Slider(Component):
+    """An accessible bounded numeric range control."""
+
+    def __init__(
+        self,
+        value: float | State[int | float] = 0,
+        *,
+        label: str,
+        min_value: float = 0,
+        max_value: float = 100,
+        step: float | str = 1,
+        disabled: bool = False,
+        on_change: Callable[[float], Any] | None = None,
+        **props: Any,
+    ):
+        super().__init__(**props)
+        for name, number in (("min_value", min_value), ("max_value", max_value)):
+            if isinstance(number, bool) or not isinstance(number, (int, float)) or not math.isfinite(number):
+                raise TypeError(f"Slider {name} must be a finite number.")
+        if min_value >= max_value:
+            raise ValueError("Slider min_value must be less than max_value.")
+        if step != "any" and (
+            isinstance(step, bool) or not isinstance(step, (int, float))
+            or not math.isfinite(step) or step <= 0
+        ):
+            raise ValueError("Slider step must be a positive finite number or 'any'.")
+        if not isinstance(label, str) or not label.strip():
+            raise ValueError("Slider label must be a non-empty accessible name.")
+        if not isinstance(disabled, bool):
+            raise TypeError("Slider disabled must be a bool.")
+        self._owns_state = isinstance(value, (int, float)) and not isinstance(value, bool)
+        self._value = State(value) if self._owns_state else value
+        if not isinstance(self._value, State):
+            raise TypeError("Slider value must be a number or State[number].")
+        current = self._value.value
+        if isinstance(current, bool) or not isinstance(current, (int, float)) or not math.isfinite(current):
+            raise TypeError("Slider state must contain a finite number.")
+        if not min_value <= current <= max_value:
+            raise ValueError("Slider value must be within its configured range.")
+        if on_change is not None and not callable(on_change):
+            raise TypeError("Slider on_change must be callable or None.")
+        self.label = label.strip()
+        self.min_value = float(min_value)
+        self.max_value = float(max_value)
+        self.step = step
+        self.disabled = disabled
+        self.on_change = on_change
+        self._action = _SliderBinding(self)
+
+    def dispose(self) -> None:
+        if self._owns_state:
+            self._value.dispose()
+
+    def to_dict(self, register_event):
+        return {
+            "id": self._node_id(),
+            "type": "slider",
+            "label": self.label,
+            "value": self._value.value,
+            "min_value": self.min_value,
+            "max_value": self.max_value,
+            "step": self.step,
+            "disabled": self.disabled,
+            "event_id": register_event(self._action) if not self.disabled else None,
+            **self._common_props(),
+        }
+
+
+class _SelectBinding:
+    accepts_value = True
+
+    def __init__(self, owner: Select):
+        self.owner = owner
+
+    def __call__(self, value: str) -> Any:
+        if self.owner.disabled:
+            raise ValueError("This select is disabled.")
+        if not isinstance(value, str) or value not in {option for _, option in self.owner.options}:
+            raise ValueError("Select value must match one of its options.")
+        self.owner._value.update(value)
+        if self.owner.on_change is not None:
+            return self.owner.on_change(value)
+        return None
+
+
+class Select(Component):
+    """An accessible single-choice native select control."""
+
+    def __init__(
+        self,
+        options: Mapping[str, str],
+        *,
+        label: str,
+        value: str | State[str] | None = None,
+        disabled: bool = False,
+        on_change: Callable[[str], Any] | None = None,
+        **props: Any,
+    ):
+        super().__init__(**props)
+        if not isinstance(label, str) or not label.strip():
+            raise ValueError("Select label must be a non-empty accessible name.")
+        if not isinstance(disabled, bool):
+            raise TypeError("Select disabled must be a bool.")
+        self.options = _choice_options(options)
+        initial = self.options[0][1] if value is None else value
+        self._owns_state = isinstance(initial, str)
+        self._value = State(initial) if isinstance(initial, str) else initial
+        allowed = {option for _, option in self.options}
+        if not isinstance(self._value, State) or not isinstance(self._value.value, str):
+            raise TypeError("Select value must be a string or State[str].")
+        if self._value.value not in allowed:
+            raise ValueError("Select value must match one of its option values.")
+        if on_change is not None and not callable(on_change):
+            raise TypeError("Select on_change must be callable or None.")
+        self.label = label.strip()
+        self.disabled = disabled
+        self.on_change = on_change
+        self._action = _SelectBinding(self)
+
+    def dispose(self) -> None:
+        if self._owns_state:
+            self._value.dispose()
+
+    def to_dict(self, register_event):
+        return {
+            "id": self._node_id(),
+            "type": "select",
+            "label": self.label,
+            "value": self._value.value,
+            "disabled": self.disabled,
+            "options": [{"label": label, "value": value} for label, value in self.options],
+            "event_id": register_event(self._action) if not self.disabled else None,
+            **self._common_props(),
+        }
+
+
+def DatePicker(value: str | State[str] = "", *, label: str | None = None, **props: Any) -> Input:
+    """Create a native date input with the regular Input binding semantics."""
+    input_type = props.pop("input_type", "date")
+    if input_type != "date":
+        raise ValueError("DatePicker input_type is always 'date'.")
+    return Input(value=value, label=label, input_type="date", **props)
+
+
+class Dropdown(Component):
+    """Keyboard-accessible disclosure containing a component subtree."""
+
+    def __init__(self, label: str, child: Component, *, open: bool = False, **props: Any):
+        super().__init__(**props)
+        if not isinstance(label, str) or not label.strip():
+            raise ValueError("Dropdown label must be a non-empty string.")
+        if not isinstance(child, Component):
+            raise TypeError("Dropdown child must be a Component.")
+        if not isinstance(open, bool):
+            raise TypeError("Dropdown open must be a bool.")
+        self.label = label.strip()
+        self.child = child
+        self.open = open
+
+    def iter_children(self) -> tuple[Component, ...]:
+        return (self.child,)
+
+    def to_dict(self, register_event):
+        return {
+            "id": self._node_id(),
+            "type": "dropdown",
+            "label": self.label,
+            "open": self.open,
+            "children": [self.child.to_dict(register_event)],
+            **self._common_props(),
+        }
+
+
+class Tooltip(Component):
+    """Non-interactive contextual text associated with a component."""
+
+    def __init__(self, child: Component, text: str, **props: Any):
+        super().__init__(**props)
+        if not isinstance(child, Component):
+            raise TypeError("Tooltip child must be a Component.")
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("Tooltip text must be a non-empty string.")
+        self.child = child
+        self.text = text.strip()
+
+    def iter_children(self) -> tuple[Component, ...]:
+        return (self.child,)
+
+    def to_dict(self, register_event):
+        return {
+            "id": self._node_id(),
+            "type": "tooltip",
+            "text": self.text,
+            "children": [self.child.to_dict(register_event)],
+            **self._common_props(),
+        }
+
+
+class ContextMenu(Component):
+    """Keyboard and pointer accessible contextual actions around a child."""
+
+    def __init__(
+        self,
+        child: Component,
+        actions: Mapping[str, Callable[[], Any]],
+        *,
+        label: str = "Actions",
+        **props: Any,
+    ):
+        super().__init__(**props)
+        if not isinstance(child, Component):
+            raise TypeError("ContextMenu child must be a Component.")
+        if not isinstance(actions, Mapping) or not actions:
+            raise ValueError("ContextMenu actions must be a non-empty label-to-callback mapping.")
+        for action_label, callback in actions.items():
+            if not isinstance(action_label, str) or not action_label.strip() or not callable(callback):
+                raise ValueError("ContextMenu actions must have non-empty labels and callable callbacks.")
+        if not isinstance(label, str) or not label.strip():
+            raise ValueError("ContextMenu label must be a non-empty accessible name.")
+        self.child = child
+        self.actions = tuple((name.strip(), callback) for name, callback in actions.items())
+        self.label = label.strip()
+
+    def iter_children(self) -> tuple[Component, ...]:
+        return (self.child,)
+
+    def to_dict(self, register_event):
+        return {
+            "id": self._node_id(),
+            "type": "context_menu",
+            "label": self.label,
+            "children": [self.child.to_dict(register_event)],
+            "actions": [
+                {"label": label, "event_id": register_event(callback)}
+                for label, callback in self.actions
+            ],
+            **self._common_props(),
+        }
 
 
 class Row(Component):
@@ -691,10 +1414,12 @@ class Grid(Component):
     """A responsive CSS grid; integer columns use equal-width tracks."""
 
     def __init__(self, *children: Component, columns: int | str = 2, spacing: int = 8,
-                 padding: int = 0, width: int | None = None, height: int | None = None, **props: Any):
+                 padding: int = 0, width: int | None = None, height: int | None = None,
+                 tablet_columns: int | None = None, mobile_columns: int | None = None, **props: Any):
         super().__init__(**props)
         self.children, self.columns, self.spacing, self.padding = children, columns, spacing, padding
         self.width, self.height = width, height
+        self.tablet_columns, self.mobile_columns = tablet_columns, mobile_columns
 
     def iter_children(self) -> tuple[Component, ...]:
         return self.children
@@ -709,12 +1434,71 @@ class Grid(Component):
             columns = _css_text(self.columns, "Grid columns")
         else:
             raise TypeError("Grid columns must be a positive integer or CSS grid template string.")
+        if not isinstance(self.columns, int) and (self.tablet_columns is not None or self.mobile_columns is not None):
+            raise ValueError("Responsive Grid columns require an integer base columns value.")
+        for name in ("tablet_columns", "mobile_columns"):
+            value = getattr(self, name)
+            if value is not None and (
+                not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 12
+            ):
+                raise ValueError(f"Grid {name} must be an integer from 1 to 12 or None.")
         _nonnegative_integer(self.spacing, "Grid spacing")
         _nonnegative_integer(self.padding, "Grid padding")
         return {"id": self._node_id(), "type": "grid", "columns": columns,
                 "column_count": self.columns if isinstance(self.columns, int) else None, "spacing": self.spacing,
+                "tablet_columns": self.tablet_columns, "mobile_columns": self.mobile_columns,
                 "padding": self.padding, **dimensions, **self._common_props(),
                 "children": _children_dict(self.children, register_event)}
+
+
+class SplitPane(Component):
+    """Two-pane layout with an accessible pointer- and keyboard-resizable divider."""
+
+    def __init__(
+        self,
+        first: Component,
+        second: Component,
+        *,
+        orientation: str = "horizontal",
+        initial_percent: int = 50,
+        min_percent: int = 15,
+        max_percent: int = 85,
+        **props: Any,
+    ):
+        super().__init__(**props)
+        if not isinstance(first, Component) or not isinstance(second, Component):
+            raise TypeError("SplitPane requires two NovaUI Component children.")
+        if orientation not in {"horizontal", "vertical"}:
+            raise ValueError("SplitPane orientation must be 'horizontal' or 'vertical'.")
+        for name, value in (("initial_percent", initial_percent), ("min_percent", min_percent),
+                            ("max_percent", max_percent)):
+            if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 100:
+                raise ValueError(f"SplitPane {name} must be an integer from 0 to 100.")
+        if not 0 < min_percent < max_percent < 100:
+            raise ValueError("SplitPane min_percent and max_percent must satisfy 0 < min < max < 100.")
+        if not min_percent <= initial_percent <= max_percent:
+            raise ValueError("SplitPane initial_percent must be between min_percent and max_percent.")
+        self.first = first
+        self.second = second
+        self.orientation = orientation
+        self.initial_percent = initial_percent
+        self.min_percent = min_percent
+        self.max_percent = max_percent
+
+    def iter_children(self) -> tuple[Component, ...]:
+        return (self.first, self.second)
+
+    def to_dict(self, register_event):
+        return {
+            "id": self._node_id(),
+            "type": "split_pane",
+            "orientation": self.orientation,
+            "initial_percent": self.initial_percent,
+            "min_percent": self.min_percent,
+            "max_percent": self.max_percent,
+            **self._common_props(),
+            "children": [self.first.to_dict(register_event), self.second.to_dict(register_event)],
+        }
 
 
 class ScrollView(Component):

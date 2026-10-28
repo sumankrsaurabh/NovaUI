@@ -186,6 +186,38 @@ def test_event_endpoint_accepts_same_origin_json_once():
         application.dispose()
 
 
+def test_event_endpoint_awaits_async_callback_before_returning_tree():
+    import asyncio
+
+    value = ui.state("before")
+
+    async def update():
+        await asyncio.sleep(0)
+        value.update("after")
+
+    application = ui.App(ui.Column(ui.Text(lambda: value.value), ui.Button("Update", on_click=update)))
+    tree = application.serialize_tree()["root"]["children"][1]
+    server = make_server(application)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    origin = f"http://127.0.0.1:{server.server_port}"
+    request = Request(
+        origin + "/api/event",
+        data=json.dumps({"event_id": tree["event_id"]}).encode(),
+        headers={"Content-Type": "application/json", "Origin": origin},
+        method="POST",
+    )
+    try:
+        with urlopen(request) as response:
+            result = json.loads(response.read())
+        assert result["root"]["children"][0]["text"] == "after"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+        application.dispose()
+
+
 def test_callback_failure_does_not_log_or_return_sensitive_message(caplog):
     def fail():
         raise RuntimeError("password=example-secret")
@@ -210,6 +242,38 @@ def test_callback_failure_does_not_log_or_return_sensitive_message(caplog):
         assert b"Event handler failed." in body
         assert b"example-secret" not in body
         assert "example-secret" not in caplog.text
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+        application.dispose()
+
+
+def test_async_callback_failure_returns_safe_error_and_logs_type(caplog):
+    async def fail():
+        raise RuntimeError("sensitive async detail")
+
+    application = ui.App(ui.Button("Run", on_click=fail))
+    tree = application.serialize_tree()["root"]
+    server = make_server(application)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    origin = f"http://127.0.0.1:{server.server_port}"
+    request = Request(
+        origin + "/api/event",
+        data=json.dumps({"event_id": tree["event_id"]}).encode(),
+        headers={"Content-Type": "application/json", "Origin": origin},
+        method="POST",
+    )
+    try:
+        with pytest.raises(HTTPError) as error:
+            urlopen(request)
+        assert error.value.code == 500
+        body = error.value.read()
+        assert b"Event handler failed." in body
+        assert b"sensitive async detail" not in body
+        assert "RuntimeError" in caplog.text
+        assert "sensitive async detail" not in caplog.text
     finally:
         server.shutdown()
         server.server_close()

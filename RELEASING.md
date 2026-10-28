@@ -13,7 +13,7 @@ Do not publish artifacts or external releases without explicit authorization. Ru
 9. Do not describe a platform or package as tested unless the corresponding command actually ran there.
 10. Review `SECURITY.md`, known limitations, wheel contents, and generated artifacts before any release.
 
-This repository has not yet completed a public release validation. CI's successful build job is necessary but does not replace clean-environment, browser, desktop, or platform testing.
+Version 0.1.0 is published on PyPI. The 0.1.1 release still requires its own CI, advisory, clean-environment, browser, desktop, and platform validation; passing local checks does not establish that the GitHub publishing workflow or every claimed platform works.
 
 ## Local install and build commands
 
@@ -33,16 +33,16 @@ python -m twine check dist/*
 
 The public source repository is `https://github.com/sumankrsaurabh/NovaUI`. Package metadata and direct-from-GitHub installation instructions use this location.
 
-The PyPI name `novaui` returned HTTP 404 from `https://pypi.org/pypi/novaui/json` when checked on 2026-10-24. That is a point-in-time check, not a reservation. Confirm the name again immediately before creating the PyPI project. The existing MIT license and its `NovaUI Contributors` copyright line are retained; no individual author identity is declared in package metadata.
+The PyPI project `novaui` has a 0.1.0 release. The existing MIT license and its `NovaUI Contributors` copyright line are retained; no individual author identity is declared in package metadata.
 
 The release workflow is `.github/workflows/release.yml`. Before it can publish:
 
 1. Protect the repository's default branch and `v*` release tags; enable private vulnerability reporting.
 2. Create a PyPI account. Then create a PyPI project (or pending publisher) for `novaui` and configure Trusted Publishing with owner `sumankrsaurabh`, repository `NovaUI`, workflow `release.yml`, and GitHub environment `pypi`.
 3. Create a protected GitHub environment named `pypi`; require maintainer approval if desired.
-4. Ensure the changelog and authoritative version are updated, then create a matching tag such as `v0.1.0` only after review.
+4. Ensure the changelog and authoritative version are updated, then create a matching tag such as `v0.1.1` only after review.
 5. The tag workflow runs tests/build/metadata validation first, publishes with GitHub OIDC, then creates a GitHub release containing the wheel and sdist. It does not run for ordinary branches or pull requests.
 
-PyPI documents the required `id-token: write` permission and environment-based publisher setup in its [Trusted Publishing guide](https://docs.pypi.org/trusted-publishers/using-a-publisher/) and [publisher configuration guide](https://docs.pypi.org/trusted-publishers/adding-a-publisher/). The repository workflow is configured but has not been executed and cannot publish until those external settings exist.
+PyPI documents the required `id-token: write` permission and environment-based publisher setup in its [Trusted Publishing guide](https://docs.pypi.org/trusted-publishers/using-a-publisher/) and [publisher configuration guide](https://docs.pypi.org/trusted-publishers/adding-a-publisher/). The workflow uses Trusted Publishing; confirm the PyPI publisher and GitHub environment settings are active before relying on a tag to publish.
 
 The separate `.github/workflows/testpypi.yml` is manually dispatched, requires typing `UPLOAD`, and requires dispatch from a tag matching the package version. Configure a separate TestPyPI Trusted Publisher for workflow `testpypi.yml` and environment `testpypi`. The workflow publishes once for that version and then installs the uploaded package to verify import, CLI, and packaged frontend resources. Do not reuse production settings or tokens. PyPA supports TestPyPI through the separate `repository-url` input; see the [PyPA publishing action documentation](https://github.com/pypa/gh-action-pypi-publish).

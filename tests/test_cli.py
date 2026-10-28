@@ -126,6 +126,22 @@ def test_check_metadata_allows_arrays_before_project_version(tmp_path, capsys):
     assert "Package metadata: passed" in capsys.readouterr().out
 
 
+def test_check_metadata_accepts_dynamic_project_version(tmp_path, capsys):
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "sample"\ndynamic = ["version"]\n', encoding="utf-8"
+    )
+    assert cli._check(tmp_path) == 0
+    assert "Package metadata: passed" in capsys.readouterr().out
+
+
+def test_check_metadata_rejects_static_and_dynamic_version(tmp_path, capsys):
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "sample"\nversion = "0.1.0"\ndynamic = ["version"]\n', encoding="utf-8"
+    )
+    assert cli._check(tmp_path) == 1
+    assert "not both" in capsys.readouterr().err
+
+
 def test_config_rejects_unknown_fields(tmp_path):
     (tmp_path / "pyproject.toml").write_text('[tool.novaui]\nunknown = "x"\n', encoding="utf-8")
     with pytest.raises(ValueError, match="Unknown tool.novaui setting"):

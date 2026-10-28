@@ -69,6 +69,27 @@ def test_file_dialog_facade_supports_legacy_pywebview_constants():
     assert raw.create_file_dialog.call_args_list[1].args[0] == 30
 
 
+def test_folder_picker_supports_current_and_legacy_pywebview_constants():
+    raw = Mock()
+    raw.create_file_dialog.side_effect = [("/tmp/project",), None, ("/tmp/legacy",)]
+    current = DesktopWindow(raw, SimpleNamespace(FileDialog=SimpleNamespace(FOLDER=40)))
+    assert current.select_folder(title="Choose project") == "/tmp/project"
+    assert current.select_folder() is None
+
+    legacy = DesktopWindow(raw, SimpleNamespace(FOLDER_DIALOG=41))
+    assert legacy.select_folder() == "/tmp/legacy"
+    assert raw.create_file_dialog.call_args_list[0].args[0] == 40
+    assert raw.create_file_dialog.call_args_list[2].args[0] == 41
+
+
+def test_folder_picker_reports_unsupported_backend_and_web_only_errors():
+    window = DesktopWindow(Mock(), SimpleNamespace())
+    with pytest.raises(RuntimeError, match="does not support folder"):
+        window.select_folder()
+    with pytest.raises(RuntimeError, match="desktop event callback"):
+        ui.dialogs.select_folder()
+
+
 def test_file_dialog_validation_and_web_only_errors():
     window = DesktopWindow(Mock(), SimpleNamespace(FileDialog=SimpleNamespace(OPEN=10, SAVE=30)))
     with pytest.raises(ValueError, match="File filters"):

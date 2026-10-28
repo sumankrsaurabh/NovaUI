@@ -1,44 +1,69 @@
-"""Reactive counter and IDE live preview example."""
+from novaui import (
+    Button,
+    Card,
+    Center,
+    Column,
+    Component,
+    Icon,
+    IconButton,
+    NovaPreview,
+    Row,
+    State,
+    Text,
+    Theme,
+    app,
+    preview_state,
+    state,
+)
 
-import novaui as ui
 
-
-def counter_panel(count: ui.State[int], *, title: str, subtitle: str) -> ui.Component:
-    return ui.Card(
-        ui.Column(
-            ui.Row(
-                ui.Card(
-                    ui.Center(ui.Icon("cube", size=42), width=72, height=72),
+def counter_panel(count: State[int], *, title: str, subtitle: str) -> Component:
+    return Card(
+        Column(
+            Row(
+                Card(
+                    Center(Icon("cube", size=42), width=72, height=72),
                     padding=8,
                     variant="glass-strong",
-                    style={"background-color": "#eeeaff", "border-radius": "24px", "box-shadow": "none"},
+                    style={
+                        "background-color": "var(--primary-soft)",
+                        "border-radius": "var(--radius-control)",
+                    },
                 ),
-                ui.Column(
-                    ui.Text(title, size=28, bold=True),
-                    ui.Text(subtitle, color="#626a85"),
+                Column(
+                    Text(title, size=28, bold=True),
+                    Text(subtitle, color="var(--muted)"),
                     spacing=4,
                 ),
                 spacing=18,
                 align="center",
             ),
-            ui.Card(
-                ui.Column(
-                    ui.Text("COUNT", size=12, bold=True, color="#626a85"),
-                    ui.Text(lambda: str(count.value), size=56, bold=True, color="#5144e8"),
+            Card(
+                Column(
+                    Text("COUNT", size=12, bold=True, color="var(--muted)"),
+                    Text(
+                        lambda: str(count.value),
+                        size=56,
+                        bold=True,
+                        color="var(--primary)",
+                    ),
                     spacing=2,
                     align="center",
                 ),
                 padding=20,
-                style={"background-color": "#f1efff", "border-radius": "24px", "box-shadow": "none"},
+                style={
+                    "background-color": "var(--primary-soft)",
+                    "border-radius": "var(--radius)",
+                },
             ),
-            ui.Row(
-                ui.IconButton(
+            Row(
+                IconButton(
                     "minus",
                     "Decrease count",
                     on_click=lambda: count.update(count.value - 1),
                     size="large",
                 ),
-                ui.Button(
+                Button(
                     "Add one",
                     icon="plus",
                     on_click=lambda: count.update(count.value + 1),
@@ -55,21 +80,25 @@ def counter_panel(count: ui.State[int], *, title: str, subtitle: str) -> ui.Comp
     )
 
 
-@ui.NovaPreview(name="Reactive counter", id="counter")
+@NovaPreview(name="Reactive counter", id="counter")
 def CounterPreview():
     return counter_panel(
-        ui.preview_state("count", 0),
+        preview_state("count", 0),
         title="NovaUI Counter",
         subtitle="State updates are handled by Python.",
     )
 
 
 def main():
-    count = ui.state(0)
-    ui.app(
-        counter_panel(count, title="NovaUI Counter", subtitle="State updates are handled by Python."),
+    count = state(0)
+    app(
+        counter_panel(
+            count,
+            title="NovaUI Counter",
+            subtitle="State updates are handled by Python.",
+        ),
         title="NovaUI Counter",
-        theme=ui.Theme(appearance="glass"),
+        theme=Theme(mode="system", appearance="glass"),
     )
 
 

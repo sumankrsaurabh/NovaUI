@@ -10,6 +10,30 @@ application, or use `Card(variant="glass")` / `Card(variant="glass-strong")`
 for individual surfaces while leaving the rest of the app solid. A
 `variant="solid"` card opts out of an app-wide glass theme.
 
+Set `Theme(mode="system")` (or `theme="system"`) to follow the browser's
+`prefers-color-scheme` setting. The page updates if the operating-system
+preference changes while the app is open. Explicit `light` and `dark` modes
+continue to override the system preference.
+
+Set `Theme(contrast="high")` to strengthen borders and focus outlines while
+retaining the selected theme colors. The default `contrast="normal"` preserves
+the standard appearance.
+
+Set `Theme(persist=True)` to persist later `App.set_theme()` choices in
+browser-local storage. The preference is scoped to the current path and app
+title. Browsers that disable local storage keep the configured server theme and
+show an accessible diagnostic.
+
+`Grid(columns=4, tablet_columns=2, mobile_columns=1)` allows each breakpoint
+to choose a column count. Tablet is 641–1024 CSS pixels; mobile is 640 pixels
+and below. Omit a breakpoint value to retain NovaUI's existing responsive
+defaults.
+
+`SplitPane(first, second)` creates two panels separated by an accessible
+divider. Drag the divider or focus it and use the arrow keys to resize within
+the configured `min_percent` and `max_percent` bounds. `StickyHeader(...)`
+creates a top-sticky header row.
+
 ## Defaults
 
 | Token | Light | Dark | Use |

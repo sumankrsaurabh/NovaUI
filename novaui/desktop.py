@@ -137,6 +137,17 @@ class DesktopWindow:
         )
         return str(selected[0]) if selected else None
 
+    def select_folder(self, *, title: str | None = None) -> str | None:
+        _validate_dialog_options(title, ())
+        file_dialog = getattr(self._backend, "FileDialog", None)
+        folder_type = getattr(file_dialog, "FOLDER", None) if file_dialog is not None else None
+        if folder_type is None:
+            folder_type = getattr(self._backend, "FOLDER_DIALOG", None)
+        if folder_type is None:
+            raise RuntimeError("The active pywebview backend does not support folder selection.")
+        selected = self._window.create_file_dialog(folder_type, allow_multiple=False)
+        return str(selected[0]) if selected else None
+
 
 @dataclass(frozen=True)
 class MenuItem:

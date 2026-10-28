@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
+import inspect
 import logging
 import os
 import re
@@ -65,7 +67,7 @@ class App:
         if not isinstance(root, Component):
             raise TypeError("app() expects a NovaUI Component as its root.")
         if not isinstance(theme, (str, Theme)):
-            raise TypeError("theme must be 'light', 'dark', a registered theme name, or a Theme instance.")
+            raise TypeError("theme must be 'light', 'dark', 'system', a registered theme name, or a Theme instance.")
         if not isinstance(debug, bool):
             raise TypeError("debug must be a bool.")
         self.root = root
@@ -78,7 +80,7 @@ class App:
         self._plugins = list(extensions.plugins) if extensions else []
         self._started_plugins: list[Any] = []
         self._services: dict[str, Any] = {}
-        if isinstance(theme, str) and theme not in {"light", "dark"}:
+        if isinstance(theme, str) and theme not in {"light", "dark", "system"}:
             try:
                 theme = self._extension_themes[theme]
             except KeyError as exc:
@@ -147,8 +149,8 @@ class App:
         server serializes the tree again and the frontend applies the new tokens.
         """
         if not isinstance(theme, (str, Theme)):
-            raise TypeError("theme must be 'light', 'dark', a registered theme name, or a Theme instance.")
-        if isinstance(theme, str) and theme not in {"light", "dark"}:
+            raise TypeError("theme must be 'light', 'dark', 'system', a registered theme name, or a Theme instance.")
+        if isinstance(theme, str) and theme not in {"light", "dark", "system"}:
             try:
                 theme = self._extension_themes[theme]
             except KeyError as exc:
@@ -280,12 +282,16 @@ class App:
                 if accepts_value:
                     raise ValueError("Input event requires a value.")
                 with activate_app(self), activate_window(self.window):
-                    callback()
+                    result = callback()
+                    if inspect.isawaitable(result):
+                        asyncio.run(result)
             else:
                 if not accepts_value:
                     raise ValueError("This event does not accept a value.")
                 with activate_app(self), activate_window(self.window):
-                    callback(value)
+                    result = callback(value)
+                    if inspect.isawaitable(result):
+                        asyncio.run(result)
         except Exception:
             # Keep the current event usable after a handler failure. The server
             # still reports the failure, and concurrent replays remain blocked.

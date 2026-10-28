@@ -10,9 +10,14 @@ The project favors a small declarative API, ordinary Python for application logi
 - Built-in solid and opt-in glass appearances, quieter border-led surfaces, icon-first buttons/navigation, semantic design tokens, and project-scoped CSS.
 - Reactive `State` values and computed `Text` content refreshed after UI events.
 - Searchable, sortable, filterable, selectable, paginated in-memory `DataTable`.
+- Editable keyboard-navigable `DataGrid` with bounded undo/redo.
+- Searchable command palettes, keyboard-operable tree views, and semantic toolbar/status components.
+- Size-limited small-file uploads and accessible dismissible notifications.
+- Bounded dynamic toast queues, native disclosure, tooltips, and contextual menus.
+- Cancellable `AsyncState`, optional high-contrast mode, and system-aware themes.
 - Semantic top and side navigation plus responsive SVG line, bar, area, and doughnut charts with no charting dependency.
 - `Scaffold` layouts with route-aware desktop sidebars, compact tablet rails, and mobile bottom navigation.
-- Optional desktop hosting via `pywebview`, with window controls, file dialogs, text clipboard, shortcuts, and menus where the platform backend supports them.
+- Optional desktop hosting via `pywebview`, with window controls, file/folder dialogs, text clipboard, shortcuts, and menus where the platform backend supports them.
 - CLI for project creation, running apps, basic checks, and Python package builds.
 - Explicit, trusted Python extensions for compositional components, named themes, and app-scoped services.
 - Experimental `@NovaComponent` reusable function components and `@NovaPreview` previews, with hot reload in the VS Code source extension. Lowercase `@component` and `@preview` aliases remain supported.
@@ -119,7 +124,7 @@ ui.app(
 - [Security policy and limitations](SECURITY.md)
 - [Tutorials](docs/tutorials.md)
 
-The [`examples/`](examples/README.md) directory contains small runnable apps for reactive state, forms, routing and tables, themes, implemented components, and optional desktop dialogs. Run them from the repository root, for example `novaui run examples/dashboard.py`. The examples use only currently implemented APIs; they are not a promise that planned widgets such as charts or editable grids are available.
+The [`examples/`](examples/README.md) directory contains runnable apps for reactive state, forms, routing and tables, themes, editable grids, small-file uploads, and optional desktop dialogs. Run them from the repository root, for example `novaui run examples/dashboard.py`.
 
 ## Development and releases
 
@@ -138,8 +143,8 @@ HTTP tests need permission to bind loopback sockets. `novaui check` runs syntax/
 
 - The local server is for development and desktop use, not hardened public hosting. It has no user authentication or process isolation.
 - Updates are requested after UI events; background state changes are not pushed live. The server returns the full component tree after interactions.
-- Tables are in-memory and not virtualized. Editable grids, charts, rich-text editors, upload/download widgets, and command palettes are not implemented.
-- Forms validate supported string fields synchronously. Repeat security-sensitive validation in trusted application services.
+- Tables are in-memory and not virtualized; `VirtualList` currently virtualizes plain text items only. Editable grids support text-cell edits; rich-text editing and large-file transfer are not included.
+- File uploads are limited to 6,000 bytes by the bounded event transport. Forms validate supported fields in Python and support cancellable async field validation. `Form` fields currently contain strings; standalone controls provide boolean, selection, date, and numeric-range values. Repeat security-sensitive validation in trusted application services.
 - Accessibility and cross-platform desktop behavior still need broader manual review. Desktop dialogs, menus, and clipboard support depend on the OS backend.
 - Extensions execute trusted Python in-process; they are not sandboxed and are not automatically discovered.
 - The public API is experimental before 1.0; see [contribution and compatibility guidance](CONTRIBUTING.md).
