@@ -6,7 +6,7 @@ You are the lead engineer building NovaUI, a Python-first declarative UI framewo
 1. Read `AGENTS.md`, `CLAUDE.md`, `README.md`, `ARCHITECTURE.md`, and `ROADMAP.md`.
 2. Inspect every source and test file.
 3. Create a virtual environment if appropriate, install `-e ".[dev]"`, and run `pytest`.
-4. Run `python examples/counter.py --no-browser` only if the server lifecycle can be tested without leaving a process; otherwise explain how to run it manually.
+4. If an application entry point is part of the task, run that app with `--no-browser` only when its server lifecycle can be checked without leaving a process; otherwise explain how to run it manually.
 5. Report the baseline status before changing code.
 
 ## Product requirements

@@ -13,8 +13,8 @@ Native APIs are explicit and only work inside a supported desktop runtime.
 - `Menu`, `MenuItem`, and `MenuSeparator`: native menu definitions where the
   pywebview backend supports them. GTK does not support the native menu API.
 
-Examples: `python examples/desktop_native.py`,
-`python examples/desktop_clipboard.py`, `python examples/desktop_shortcuts.py`,
-and `python examples/desktop_menu.py`. Dialog titles are currently not forwarded
-by the pywebview adapter. Clipboard availability depends on Tk and the desktop
+Run `novaui run examples/desktop.py --mode desktop` to see a native open-file
+dialog attached to an explicit button action. Use these APIs from an explicit
+user action in your own app. Dialog titles are currently not forwarded by
+the pywebview adapter. Clipboard availability depends on Tk and the desktop
 session.

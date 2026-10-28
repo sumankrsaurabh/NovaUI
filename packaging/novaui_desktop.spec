@@ -1,4 +1,4 @@
-"""PyInstaller sample spec for examples/shared_app.py; build on each target OS."""
+"""PyInstaller sample spec for a user-provided app.py; build on each target OS."""
 
 from pathlib import Path
 
@@ -9,7 +9,7 @@ webview_datas, webview_binaries, webview_hiddenimports = collect_all("webview")
 frontend = project_root / "novaui" / "frontend"
 
 analysis = Analysis(
-    [str(project_root / "examples" / "shared_app.py")],
+    [str(project_root / "app.py")],
     pathex=[str(project_root)],
     binaries=webview_binaries,
     datas=[*webview_datas, (str(frontend), "novaui/frontend")],
@@ -28,7 +28,7 @@ executable = EXE(
     analysis.binaries,
     analysis.datas,
     [],
-    name="NovaUISharedApp",
+    name="NovaUIApplication",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

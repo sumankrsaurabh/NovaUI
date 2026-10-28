@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 from .components import Component, Text
 
 _ACTIVE_APP: ContextVar[Any | None] = ContextVar("novaui_active_app", default=None)
+_ACTIVE_ROUTE_PATH: ContextVar[str | None] = ContextVar("novaui_active_route_path", default=None)
 _PARAMETER = re.compile(r"\{([A-Za-z][A-Za-z0-9_]*)\}")
 
 
@@ -30,6 +31,11 @@ def navigate(path: str) -> None:
     if application is None:
         raise RuntimeError("navigate() can only be called from a NovaUI event callback.")
     application.navigate(path)
+
+
+def current_route_path() -> str | None:
+    """Return the route being serialized, for route-aware layout components."""
+    return _ACTIVE_ROUTE_PATH.get()
 
 
 class Router(Component):
@@ -149,12 +155,17 @@ class Router(Component):
         return tuple(unique.values())
 
     def to_dict(self, register_event):
+        token = _ACTIVE_ROUTE_PATH.set(self.current_path)
+        try:
+            child = self._page.to_dict(register_event)
+        finally:
+            _ACTIVE_ROUTE_PATH.reset(token)
         return {
             "id": self._node_id(),
             "type": "router",
             "path": self.current_path,
             "params": dict(self.params),
             "query": dict(self.query_params),
-            "children": [self._page.to_dict(register_event)],
+            "children": [child],
             **self._common_props(),
         }

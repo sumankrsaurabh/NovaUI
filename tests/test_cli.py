@@ -89,6 +89,20 @@ def test_cli_version(capsys):
     assert "novaui" in capsys.readouterr().out
 
 
+def test_cli_preview_lists_registered_functions_without_rendering(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "preview.py").write_text(
+        'import novaui as ui\n'
+        '@ui.preview(name="Example")\n'
+        'def ExamplePreview(): return ui.Text("preview")\n',
+        encoding="utf-8",
+    )
+    assert cli.main(["preview", "preview.py", "--list"]) == 0
+    output = capsys.readouterr().out
+    assert '"type": "previews"' in output
+    assert '"name": "Example"' in output
+
+
 def test_cli_check_compiles_and_runs_tests_when_present(tmp_path, monkeypatch):
     (tmp_path / "ok.py").write_text("value = 1\n", encoding="utf-8")
     (tmp_path / "tests").mkdir()

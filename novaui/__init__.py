@@ -4,27 +4,46 @@ from . import clipboard, dialogs, window
 from .app import App, app, desktop
 from .components import (
     Animated,
+    Badge,
     Button,
     Card,
     Center,
     Column,
     Component,
     Container,
+    Divider,
+    Fragment,
     Grid,
+    Icon,
     Image,
+    IconButton,
     Input,
     Row,
     ScrollView,
     Spacer,
+    Skeleton,
     Stack,
     Text,
+    ProgressBar,
     Wrap,
+    component,
 )
+from .charts import Chart, ChartDataset
 from .data_table import ColumnDef, DataTable, RowAction
 from .desktop import Menu, MenuItem, MenuSeparator, WindowOptions
 from .extensions import CustomComponent, Extensions
 from .feedback import Alert, Dialog, Spinner
 from .forms import Field, Form
+from .preview import (
+    PreviewDiagnostic,
+    PreviewDiscovery,
+    PreviewInfo,
+    PreviewResult,
+    PreviewRuntime,
+    discover_previews,
+    preview,
+    render_preview,
+)
 from .routing import Router, navigate
 from .shell import (
     AppShell,
@@ -33,23 +52,35 @@ from .shell import (
     Header,
     MainContent,
     NavigationItem,
+    NavigationBar,
+    NavDestination,
+    Navbar,
+    Scaffold,
     Sidebar,
+    SideNavigation,
     Tabs,
 )
 from .shortcuts import ShortcutRegistry
-from .state import State, state
+from .state import State, preview_state, state
 from .theme import Theme
 
 __version__ = "0.1.0"
+
+# NovaUI-branded decorator spellings. The lowercase names remain supported.
+NovaComponent = component
+NovaPreview = preview
 
 __all__ = [
     "Alert",
     "Animated",
     "App",
     "AppShell",
+    "Badge",
     "Breadcrumbs",
     "Button",
     "Card",
+    "Chart",
+    "ChartDataset",
     "Center",
     "Column",
     "ColumnDef",
@@ -58,25 +89,43 @@ __all__ = [
     "CustomComponent",
     "DataTable",
     "Dialog",
+    "Divider",
     "Extensions",
     "Field",
+    "Fragment",
     "Footer",
     "Form",
     "Grid",
+    "Icon",
     "Header",
     "Image",
+    "IconButton",
     "Input",
     "MainContent",
     "Menu",
     "MenuItem",
     "MenuSeparator",
     "NavigationItem",
+    "NavigationBar",
+    "NavDestination",
+    "Navbar",
+    "PreviewDiagnostic",
+    "PreviewDiscovery",
+    "PreviewInfo",
+    "PreviewResult",
+    "PreviewRuntime",
+    "ProgressBar",
+    "NovaComponent",
+    "NovaPreview",
     "Router",
     "Row",
     "RowAction",
     "ScrollView",
     "ShortcutRegistry",
     "Sidebar",
+    "Scaffold",
+    "SideNavigation",
+    "Skeleton",
     "Spacer",
     "Spinner",
     "Stack",
@@ -89,9 +138,14 @@ __all__ = [
     "__version__",
     "app",
     "clipboard",
+    "component",
     "desktop",
     "dialogs",
+    "discover_previews",
     "navigate",
+    "preview",
+    "preview_state",
+    "render_preview",
     "state",
     "window",
 ]

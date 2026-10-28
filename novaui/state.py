@@ -9,6 +9,9 @@ from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")
 _active_dependencies: ContextVar[set[Any] | None] = ContextVar("novaui_dependencies", default=None)
+_preview_states: ContextVar[tuple[dict[str, State[Any]], set[str]] | None] = ContextVar(
+    "novaui_preview_states", default=None
+)
 
 
 class State(Generic[T]):
@@ -88,3 +91,35 @@ def track_dependencies() -> Iterator[set[State[Any]]]:
 
 def state(value: T) -> State[T]:
     return State(value)
+
+
+@contextmanager
+def preview_state_scope(states: dict[str, State[Any]], used: set[str]) -> Iterator[None]:
+    """Select the explicit state store used by one preview render."""
+    token = _preview_states.set((states, used))
+    try:
+        yield
+    finally:
+        _preview_states.reset(token)
+
+
+def preview_state(key: str, initial: T) -> State[T]:
+    """Return a preview-local state value preserved across compatible reloads.
+
+    This is available only while NovaUI is invoking a selected preview. Ordinary
+    ``state()`` values retain their normal construction and reset semantics.
+    """
+    if not isinstance(key, str) or not key.strip() or len(key) > 120:
+        raise ValueError("Preview state key must be a non-empty string of at most 120 characters.")
+    active = _preview_states.get()
+    if active is None:
+        raise RuntimeError("preview_state() can only be used inside a rendered @ui.preview function.")
+    states, used = active
+    key = key.strip()
+    used.add(key)
+    existing = states.get(key)
+    if existing is not None and type(existing.value) is type(initial) and not existing.is_disposed:
+        return existing  # type: ignore[return-value]
+    replacement = State(initial)
+    states[key] = replacement
+    return replacement

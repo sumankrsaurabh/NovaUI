@@ -7,11 +7,15 @@ The project favors a small declarative API, ordinary Python for application logi
 ## What works today
 
 - Browser UI with text, buttons, inputs, layout components, forms, routing, dialogs, and themes.
+- Built-in solid and opt-in glass appearances, quieter border-led surfaces, icon-first buttons/navigation, semantic design tokens, and project-scoped CSS.
 - Reactive `State` values and computed `Text` content refreshed after UI events.
 - Searchable, sortable, filterable, selectable, paginated in-memory `DataTable`.
+- Semantic top and side navigation plus responsive SVG line, bar, area, and doughnut charts with no charting dependency.
+- `Scaffold` layouts with route-aware desktop sidebars, compact tablet rails, and mobile bottom navigation.
 - Optional desktop hosting via `pywebview`, with window controls, file dialogs, text clipboard, shortcuts, and menus where the platform backend supports them.
 - CLI for project creation, running apps, basic checks, and Python package builds.
 - Explicit, trusted Python extensions for compositional components, named themes, and app-scoped services.
+- Experimental `@NovaComponent` reusable function components and `@NovaPreview` previews, with hot reload in the VS Code source extension. Lowercase `@component` and `@preview` aliases remain supported.
 
 Python 3.10 or newer is required. Browser mode is the default. Desktop mode needs `pywebview` plus a platform webview. NovaUI has been tested locally on Linux; CI is configured for additional OS and Python versions, but that is not the same as a completed release compatibility review.
 
@@ -28,7 +32,6 @@ python -m venv .venv
 # Linux/macOS: source .venv/bin/activate
 # Windows PowerShell: .venv\Scripts\Activate.ps1
 python -m pip install -e '.[dev]'
-python examples/counter.py
 ```
 
 To install the current source without development tools, use
@@ -55,7 +58,7 @@ available after the corresponding tag is published, for example
 The PyPI command `python -m pip install novaui` will work after the first
 package release.
 
-Directly running an example opens a browser by default. To scaffold a project with the CLI:
+Scaffold a project with the CLI:
 
 ```bash
 novaui create hello_app
@@ -63,11 +66,11 @@ cd hello_app
 novaui run --open-browser
 ```
 
-For a desktop window, install the optional dependency and run an example with `--desktop`:
+For a desktop window, install the optional dependency and run your app in desktop mode:
 
 ```bash
 python -m pip install -e '.[desktop]'
-python examples/counter.py --desktop
+novaui run app.py --mode desktop
 ```
 
 For the optional Qt webview backend:
@@ -103,26 +106,27 @@ ui.app(
 
 `Text` supports `bold=True`; there is no `weight` argument. Inputs can bind to `ui.state(...)`, and callback events are registered by opaque IDs. See the [first app tutorial](docs/getting-started/first-app.md) for a complete walkthrough.
 
-## Documentation and examples
+## Documentation
 
 - [Documentation index](docs/index.md)
 - [Installation and first app](docs/getting-started/installation.md)
 - [Component reference](COMPONENTS.md)
+- [Design system: themes, glass surfaces, and tokens](docs/design-system.md)
 - [Forms](FORMS.md) and [routing](ROUTING.md)
 - [CLI reference](CLI.md)
 - [Extension guide](EXTENSIONS.md)
+- [Live preview guide](docs/live-preview.md) and [VS Code extension source](editors/vscode/README.md)
 - [Security policy and limitations](SECURITY.md)
-- [Examples gallery](docs/tutorials.md)
-- [Phase 11 application validation guide](docs/phase11-applications.md)
+- [Tutorials](docs/tutorials.md)
 
-The [`examples/`](examples/) directory contains counters, forms, dashboards, tables, routing, desktop utilities, extension samples, and the Phase 11 [Studio](examples/phase11_studio/README.md), [Admin](examples/phase11_admin/README.md), and [PyOffice Notes](examples/phase11_pyoffice/README.md) applications. See the gallery for the correct run mode; desktop examples require a working GUI backend.
+The [`examples/`](examples/README.md) directory contains small runnable apps for reactive state, forms, routing and tables, themes, implemented components, and optional desktop dialogs. Run them from the repository root, for example `novaui run examples/dashboard.py`. The examples use only currently implemented APIs; they are not a promise that planned widgets such as charts or editable grids are available.
 
 ## Development and releases
 
 ```bash
 python -m pip install -e '.[dev]'
 PYTHONPATH=. python -m pytest -q
-python -m ruff check novaui tests examples packaging
+python -m ruff check novaui tests packaging
 node --check novaui/frontend/app.js
 python -m build --sdist --wheel
 python -m twine check dist/*

@@ -5,7 +5,7 @@ Install the optional extra:
 
 ```bash
 python -m pip install -e '.[desktop]'
-python examples/desktop_window.py
+novaui run app.py --mode desktop
 ```
 
 `ui.desktop(root, title=..., width=..., height=..., min_width=..., min_height=...,

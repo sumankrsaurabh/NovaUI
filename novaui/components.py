@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import itertools
+import inspect
 import re
+from contextvars import ContextVar
+from functools import wraps
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, ParamSpec, cast
 from urllib.parse import quote
 
 from .state import State, track_dependencies
@@ -28,6 +31,13 @@ _STYLE_PROPERTIES = {
 }
 _UNITLESS_STYLE_PROPERTIES = {"flex", "font-weight", "line-height", "opacity"}
 _UNSAFE_CSS_PATTERN = re.compile(r"url\s*\(|expression\s*\(|javascript\s*:", re.IGNORECASE)
+_ICON_NAMES = frozenset({
+    "home", "grid", "search", "settings", "plus", "minus", "arrow_right",
+    "chevron_right", "chart", "users", "file", "check", "close", "menu",
+    "sun", "moon", "sparkles", "download", "folder", "heart", "clock", "cube",
+})
+_ComponentParams = ParamSpec("_ComponentParams")
+_component_scopes: ContextVar[tuple[list["Component"], ...]] = ContextVar("novaui_component_scopes", default=())
 
 
 def _css_text(value: Any, name: str) -> str:
@@ -70,6 +80,12 @@ class Component:
     class_name: str | None = None
     style: dict[str, str | int | float] | None = None
     _nova_node_id: str | None = field(default=None, init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        # Function components use this scoped construction log to infer a root
+        # when their body composes components without an explicit return.
+        for scope in _component_scopes.get():
+            scope.append(self)
 
     def _node_id(self) -> str:
         node_id = self._nova_node_id
@@ -121,6 +137,55 @@ class Component:
 
     def dispose(self) -> None:
         """Release resources owned by this component, if any."""
+
+
+def component(function: Callable[_ComponentParams, Component | None]) -> Callable[_ComponentParams, Component]:
+    """Declare a reusable Python function that constructs a NovaUI component.
+
+    The function may accept normal Python arguments. It can either return one
+    :class:`Component` or construct exactly one component root in its body. The
+    returned component is rendered and disposed by NovaUI's usual lifecycle.
+    """
+    if not inspect.isfunction(function):
+        raise TypeError("@component can decorate only a Python function.")
+    if inspect.iscoroutinefunction(function):
+        raise TypeError("Component factories must be synchronous.")
+
+    @wraps(function)
+    def build_component(*args: Any, **kwargs: Any) -> Component:
+        scopes = _component_scopes.get()
+        constructed: list[Component] = []
+        token = _component_scopes.set((*scopes, constructed))
+        try:
+            result = function(*args, **kwargs)
+        finally:
+            _component_scopes.reset(token)
+        if result is None:
+            constructed_ids = {id(item) for item in constructed}
+            child_ids = {
+                id(child)
+                for parent in constructed
+                for child in parent.iter_children()
+                if isinstance(child, Component) and id(child) in constructed_ids
+            }
+            roots = [item for item in constructed if id(item) not in child_ids]
+            if len(roots) == 1:
+                result = roots[0]
+            elif not roots:
+                raise TypeError(
+                    f"Component factory {function.__name__!r} did not return or compose a NovaUI Component."
+                )
+            else:
+                result = Fragment(*roots)
+        if not isinstance(result, Component):
+            raise TypeError(
+                f"Component factory {function.__name__!r} must return or compose a NovaUI Component, "
+                f"not {type(result).__name__}."
+            )
+        return result
+
+    setattr(build_component, "__novaui_component__", True)
+    return cast(Callable[_ComponentParams, Component], build_component)
 
 
 def _children_dict(children: tuple[Any, ...], register_event: Callable) -> list[dict[str, Any]]:
@@ -261,6 +326,7 @@ class Button(Component):
     variant: str = "primary"
     width: int | None = None
     height: int | None = None
+    icon: str | None = None
 
     def to_dict(self, register_event):
         dimensions = _dimension_props(self)
@@ -272,9 +338,141 @@ class Button(Component):
             raise TypeError("Button disabled must be a bool.")
         if self.variant not in {"primary", "secondary"}:
             raise ValueError("Button variant must be 'primary' or 'secondary'.")
+        if self.icon is not None and self.icon not in _ICON_NAMES:
+            raise ValueError(f"Button icon must be one of: {', '.join(sorted(_ICON_NAMES))}.")
         event_id = register_event(self.on_click) if self.on_click is not None and not self.disabled else None
         return {"id": self._node_id(), "type": "button", "label": self.label, "event_id": event_id,
-                **dimensions, "disabled": self.disabled, "variant": self.variant, **self._common_props()}
+                **dimensions, "disabled": self.disabled, "variant": self.variant, "icon": self.icon,
+                **self._common_props()}
+
+
+@dataclass
+class Icon(Component):
+    """A small, accessible icon from NovaUI's bundled stroke icon set."""
+
+    name: str
+    size: int = 18
+    label: str | None = None
+
+    def to_dict(self, register_event):
+        if not isinstance(self.name, str) or self.name not in _ICON_NAMES:
+            raise ValueError(f"Icon name must be one of: {', '.join(sorted(_ICON_NAMES))}.")
+        if isinstance(self.size, bool) or not isinstance(self.size, int) or not 12 <= self.size <= 48:
+            raise ValueError("Icon size must be an integer from 12 to 48 pixels.")
+        if self.label is not None and (not isinstance(self.label, str) or not self.label.strip()):
+            raise ValueError("Icon label must be a non-empty string or None.")
+        return {"id": self._node_id(), "type": "icon", "name": self.name, "size": self.size,
+                "label": self.label, **self._common_props()}
+
+
+@dataclass
+class IconButton(Component):
+    """A compact button with a visible symbol and an accessible text label."""
+
+    icon: str
+    label: str
+    on_click: Callable[..., Any] | None = None
+    disabled: bool = False
+    variant: str = "secondary"
+    size: str = "medium"
+    width: int | None = None
+    height: int | None = None
+
+    def to_dict(self, register_event):
+        dimensions = _dimension_props(self)
+        if not isinstance(self.icon, str) or not self.icon.strip() or len(self.icon) > 16:
+            raise ValueError("IconButton icon must be a non-empty symbol of at most 16 characters.")
+        if not isinstance(self.label, str) or not self.label.strip():
+            raise ValueError("IconButton label must be a non-empty accessible name.")
+        if self.on_click is not None and not callable(self.on_click):
+            raise TypeError("IconButton on_click must be callable or None.")
+        if not isinstance(self.disabled, bool):
+            raise TypeError("IconButton disabled must be a bool.")
+        if self.variant not in {"primary", "secondary"}:
+            raise ValueError("IconButton variant must be 'primary' or 'secondary'.")
+        if self.size not in {"small", "medium", "large"}:
+            raise ValueError("IconButton size must be 'small', 'medium', or 'large'.")
+        event_id = register_event(self.on_click) if self.on_click is not None and not self.disabled else None
+        return {"id": self._node_id(), "type": "icon_button", "icon": self.icon.strip(),
+                "label": self.label.strip(), "event_id": event_id, "disabled": self.disabled,
+                "variant": self.variant, "size": self.size, **dimensions, **self._common_props()}
+
+
+@dataclass
+class Badge(Component):
+    """A compact status label with a semantic tone."""
+
+    label: str
+    tone: str = "neutral"
+
+    def to_dict(self, register_event):
+        if not isinstance(self.label, str) or not self.label.strip():
+            raise ValueError("Badge label must be a non-empty string.")
+        if self.tone not in {"neutral", "info", "success", "warning", "danger"}:
+            raise ValueError("Badge tone must be neutral, info, success, warning, or danger.")
+        return {"id": self._node_id(), "type": "badge", "label": self.label.strip(),
+                "tone": self.tone, **self._common_props()}
+
+
+@dataclass
+class Divider(Component):
+    """A semantic horizontal or vertical separator."""
+
+    orientation: str = "horizontal"
+
+    def to_dict(self, register_event):
+        if self.orientation not in {"horizontal", "vertical"}:
+            raise ValueError("Divider orientation must be 'horizontal' or 'vertical'.")
+        return {"id": self._node_id(), "type": "divider", "orientation": self.orientation,
+                **self._common_props()}
+
+
+@dataclass
+class ProgressBar(Component):
+    """A determinate, accessible progress indicator."""
+
+    value: int | float
+    max_value: int | float = 100
+    label: str = "Progress"
+    show_value: bool = False
+
+    def to_dict(self, register_event):
+        if (isinstance(self.value, bool) or not isinstance(self.value, (int, float))
+                or not float("-inf") < float(self.value) < float("inf")):
+            raise TypeError("ProgressBar value must be a finite number.")
+        if (isinstance(self.max_value, bool) or not isinstance(self.max_value, (int, float))
+                or not float("-inf") < float(self.max_value) < float("inf") or self.max_value <= 0):
+            raise ValueError("ProgressBar max_value must be a finite number greater than zero.")
+        if self.value < 0 or self.value > self.max_value:
+            raise ValueError("ProgressBar value must be between zero and max_value.")
+        if not isinstance(self.label, str) or not self.label.strip():
+            raise ValueError("ProgressBar label must be a non-empty accessible name.")
+        if not isinstance(self.show_value, bool):
+            raise TypeError("ProgressBar show_value must be a bool.")
+        return {"id": self._node_id(), "type": "progress_bar", "value": self.value,
+                "max_value": self.max_value, "label": self.label.strip(),
+                "show_value": self.show_value, **self._common_props()}
+
+
+@dataclass
+class Skeleton(Component):
+    """An accessible-hidden placeholder for text, rectangular, or circular content."""
+
+    variant: str = "text"
+    width: int | None = None
+    height: int | None = None
+    lines: int = 1
+
+    def to_dict(self, register_event):
+        dimensions = _dimension_props(self)
+        if self.variant not in {"text", "rect", "circle"}:
+            raise ValueError("Skeleton variant must be 'text', 'rect', or 'circle'.")
+        if not isinstance(self.lines, int) or isinstance(self.lines, bool) or not 1 <= self.lines <= 12:
+            raise ValueError("Skeleton lines must be an integer from 1 to 12.")
+        if self.variant != "text" and self.lines != 1:
+            raise ValueError("Skeleton lines is supported only when variant='text'.")
+        return {"id": self._node_id(), "type": "skeleton", "variant": self.variant,
+                "lines": self.lines, **dimensions, **self._common_props()}
 
 
 @dataclass
@@ -410,10 +608,11 @@ class Column(Component):
 
 
 class Card(Component):
-    def __init__(self, *children: Component, padding: int = 16, radius: int = 12,
+    def __init__(self, *children: Component, padding: int = 16, radius: int | None = None,
+                 variant: str = "auto",
                  width: int | None = None, height: int | None = None, **props: Any):
         super().__init__(**props)
-        self.children, self.padding, self.radius = children, padding, radius
+        self.children, self.padding, self.radius, self.variant = children, padding, radius, variant
         self.width, self.height = width, height
 
     def iter_children(self) -> tuple[Component, ...]:
@@ -422,8 +621,11 @@ class Card(Component):
     def to_dict(self, register_event):
         dimensions = _dimension_props(self)
         _nonnegative_integer(self.padding, "Card padding")
-        _nonnegative_integer(self.radius, "Card radius")
+        _nonnegative_integer(self.radius, "Card radius", optional=True)
+        if not isinstance(self.variant, str) or self.variant not in {"auto", "solid", "glass", "glass-strong"}:
+            raise ValueError("Card variant must be 'auto', 'solid', 'glass', or 'glass-strong'.")
         return {"id": self._node_id(), "type": "card", "padding": self.padding, "radius": self.radius,
+                "variant": self.variant,
                 **dimensions, **self._common_props(),
                 "children": _children_dict(self.children, register_event)}
 
@@ -575,6 +777,21 @@ class Wrap(Component):
         return {"id": self._node_id(), "type": "wrap", "spacing": self.spacing,
                 "run_spacing": self.run_spacing, "align": self.align, **dimensions,
                 **self._common_props(), "children": _children_dict(self.children, register_event)}
+
+
+class Fragment(Component):
+    """Group sibling components without adding a visual layout box."""
+
+    def __init__(self, *children: Component):
+        super().__init__()
+        self.children = children
+
+    def iter_children(self) -> tuple[Component, ...]:
+        return self.children
+
+    def to_dict(self, register_event):
+        return {"id": self._node_id(), "type": "fragment",
+                "children": _children_dict(self.children, register_event)}
 
 
 class Animated(Component):

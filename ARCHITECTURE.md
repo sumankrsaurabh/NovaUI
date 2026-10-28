@@ -12,7 +12,7 @@ NovaUI uses a Python declarative API and a browser renderer. The same HTML/CSS/J
 4. **Runtime** (`novaui/app.py`, `novaui/server.py`): lifecycle, HTTP endpoints, event registry.
 5. **Frontend** (`novaui/frontend/`): DOM renderer, CSS tokens, event bridge.
 6. **Desktop host** (`novaui/app.py`, `novaui/desktop.py`): optional `pywebview` adapter over the same local HTTP frontend, with validated window options and a per-window facade.
-7. **Application logic** (`novaui/forms.py`, `novaui/routing.py`, `novaui/shell.py`, `novaui/feedback.py`): Python-side form state/validation, route matching, layout compositions, and event-backed feedback controls.
+7. **Application logic** (`novaui/forms.py`, `novaui/routing.py`, `novaui/shell.py`, `novaui/feedback.py`): Python-side form state/validation, route matching, layout compositions, and event-backed feedback controls. `Scaffold` serializes a screen body, top bar, brand, floating action, and route destinations; CSS adapts one navigation list to a desktop sidebar, tablet icon rail, or mobile bottom bar.
 8. **Native adapters** (`novaui/dialogs.py`, `novaui/clipboard.py`, `novaui/window.py`, `novaui/shortcuts.py`): explicit desktop-only OS access and per-application shortcut registrations.
 9. **Developer tooling** (`novaui/cli.py`, `novaui/project.py`): argparse commands, starter templates, project options, and a context-local project root for runtime asset resolution.
 10. **Data components** (`novaui/data_table.py`): validated column definitions and server-owned table interaction state.
@@ -22,6 +22,8 @@ NovaUI uses a Python declarative API and a browser renderer. The same HTML/CSS/J
 Component instances serialize to a small JSON tree. The browser renderer (`novaui/frontend/app.js`) maps the known component types to DOM elements and updates existing elements by stable ID. `Row` and `Column` use Flexbox, `Grid` uses CSS Grid with responsive integer-column presets, `Wrap` uses wrapping Flexbox, `ScrollView` uses overflow scrolling, and `Stack` overlays children in one grid cell. `Container`, `Card`, and `Center` provide box, surface, and centering behavior.
 
 Shared visual properties serialize as style tokens and are applied with DOM `style` APIs. The Python layer validates class names, common CSS lengths, and a constrained style-property allowlist; it rejects CSS URL and expression values. `Theme` serializes its validated mode, primary color, radius, font family, and optional semantic palette overrides into an allowlist of CSS variables. Omitted palette values preserve the built-in light/dark defaults. The server never evaluates browser-supplied code.
+
+`Router.to_dict()` provides its active path through a short-lived `ContextVar` while serializing the selected page. A nested `Scaffold` reads that path to mark the active destination; its navigation buttons still send only registered opaque event IDs through the normal event bridge. A standalone scaffold may specify `current_path`, but route navigation requires the application root to be a `Router`.
 
 ## Event flow
 

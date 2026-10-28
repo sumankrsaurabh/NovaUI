@@ -1,1 +1,0 @@
-"""NovaUI Admin validation application."""

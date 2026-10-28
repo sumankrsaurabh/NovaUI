@@ -13,8 +13,9 @@ ui.app(ui.Text("Themed"), theme="brand", extensions=extensions)
 Custom components subclass `ui.CustomComponent` and return one built-in
 component from `render()`. Plugins can implement `setup(app)`,
 `on_app_start(app)`, and `on_app_stop(app)` and register services on that app.
-See the full [extension guide](../../EXTENSIONS.md) and the three runnable
-`examples/extensions_*.py` files.
+See the full [extension guide](../../EXTENSIONS.md). This repository does not
+ship runnable extension applications; plugin setup remains documented here
+because plugins are trusted Python code with app-specific lifecycle hooks.
 
 Plugins execute trusted Python in-process; they are not sandboxed. NovaUI does
 not auto-discover installed plugins, load arbitrary paths, or provide a stable

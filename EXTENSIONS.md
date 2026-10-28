@@ -115,5 +115,6 @@ The supported extension surface is `Extensions`, `CustomComponent`, named
 The component registry, renderer serialization format, and frontend protocol
 remain internal and may change. There is no extension marketplace, hot reload,
 remote plugin support, sandbox, or stable plugin ABI guarantee in NovaUI 0.1.
-For a sample of each extension type, run `examples/extensions_component_pack.py`,
-`examples/extensions_theme_pack.py`, or `examples/extensions_service_plugin.py`.
+The repository does not ship runnable extension examples. Use the API snippets
+in this guide to implement and exercise trusted extensions in your own
+application.

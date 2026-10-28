@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import argparse
 import ast
+import json
 import keyword
 import logging
 import os
+import queue
 import re
 import runpy
 import subprocess
 import sys
+import threading
+import webbrowser
 from pathlib import Path
 
 from . import __version__
@@ -43,7 +47,131 @@ def _parser() -> argparse.ArgumentParser:
     build = commands.add_parser("build", help="build NovaUI source and wheel distributions")
     build.add_argument("--outdir", type=Path, default=Path("dist"), help="output directory (default: dist)")
     build.add_argument("--debug", action="store_true", default=argparse.SUPPRESS, help="show detailed diagnostics")
+
+    preview = commands.add_parser("preview", help="render a component preview from a Python source file")
+    preview.add_argument("script", type=Path, help="Python file containing top-level @ui.preview functions")
+    preview.add_argument("--name", help="select a preview by its registered name")
+    preview.add_argument("--list", action="store_true", help="list previews and exit without rendering them")
+    preview.add_argument("--theme", choices=("light", "dark"), help="override the preview theme")
+    preview.add_argument("--host", choices=("127.0.0.1",), default="127.0.0.1", help=argparse.SUPPRESS)
+    preview.add_argument("--port", type=int, default=0, help="loopback port (0 chooses an available port)")
+    preview.add_argument("--no-browser", action="store_true", help="print the URL without opening a browser")
+    preview.add_argument("--no-watch", action="store_true", help="disable source hot reload")
+    preview.add_argument("--json-protocol", action="store_true", help=argparse.SUPPRESS)
+    preview.add_argument("--debug", action="store_true", default=argparse.SUPPRESS, help="show detailed diagnostics")
     return parser
+
+
+def _preview_error(diagnostic) -> str:
+    location = f" ({diagnostic.file}:{diagnostic.line})" if diagnostic.line else f" ({diagnostic.file})"
+    return f"{diagnostic.error_type}: {diagnostic.message}{location}"
+
+
+def _run_preview(args, project_dir: Path) -> int:
+    from .preview import PreviewRuntime, parse_preview_command
+
+    source = (project_dir / args.script).resolve() if not args.script.is_absolute() else args.script.resolve()
+    if isinstance(args.port, bool) or not 0 <= args.port <= 65535:
+        print("novaui: preview port must be between 0 and 65535.", file=sys.stderr)
+        return 2
+    runtime = PreviewRuntime(project_dir)
+    try:
+        discovery = runtime.discover_previews(source)
+        if discovery.error:
+            print(f"novaui: {_preview_error(discovery.error)}", file=sys.stderr)
+            return 2
+        if args.list:
+            print(json.dumps({"version": 1, "type": "previews", "previews": [item.to_dict() for item in discovery.previews]}))
+            return 0
+        if args.name is None and len(discovery.previews) > 1:
+            names = ", ".join(preview.name for preview in discovery.previews)
+            print(f"novaui: this file has multiple previews; pass --name. Available: {names}", file=sys.stderr)
+            return 2
+        result = runtime.render_preview(source, args.name, theme=args.theme)
+        if not result.ok:
+            print(f"novaui: {_preview_error(result.error)}", file=sys.stderr)
+            return 1
+        url = runtime.start_server(port=args.port)
+        if args.json_protocol:
+            ready = {
+                "version": 1,
+                "type": "ready",
+                "url": url,
+                "selected": runtime.selected,
+                "theme": runtime.theme,
+                "viewport": {"width": runtime.viewport[0], "height": runtime.viewport[1]},
+                "previews": [item.to_dict() for item in discovery.previews],
+            }
+            print("NOVAUI_PREVIEW " + json.dumps(ready), flush=True)
+            runtime.on_loading = lambda: print(
+                'NOVAUI_PREVIEW {"version":1,"type":"loading"}', flush=True
+            )
+            def report_change(update) -> None:
+                print("NOVAUI_PREVIEW " + json.dumps({
+                    "version": 1,
+                    "type": "update",
+                    **update.to_dict(),
+                }), flush=True)
+            runtime.on_change = report_change
+        else:
+            print(f"NovaUI preview running at {url} (Ctrl+C to stop)", flush=True)
+            if not args.no_browser:
+                webbrowser.open(url)
+
+        if not args.no_watch:
+            runtime.start_watching()
+
+        commands: queue.Queue[str] = queue.Queue()
+        idle = threading.Event()
+        if args.json_protocol:
+            def read_commands() -> None:
+                for raw in sys.stdin:
+                    commands.put(raw)
+            threading.Thread(target=read_commands, daemon=True, name="novaui-preview-protocol-reader").start()
+        try:
+            while True:
+                if args.json_protocol:
+                    try:
+                        raw = commands.get(timeout=0.25)
+                    except queue.Empty:
+                        continue
+                    try:
+                        message = parse_preview_command(raw.strip())
+                        kind = message["type"]
+                        if kind == "shutdown":
+                            break
+                        if kind == "refresh":
+                            result = runtime.reload_preview()
+                        elif kind == "select":
+                            result = runtime.reload_preview(preview_name=message["name"])
+                        elif kind == "theme":
+                            runtime.set_theme(message["theme"])
+                            result = None
+                        elif kind == "viewport":
+                            runtime.set_viewport(message["width"], message["height"])
+                            result = None
+                        elif kind == "reset":
+                            result = runtime.reset_preview_state()
+                        else:
+                            result = None
+                        response = {"version": 1, "type": kind, "ok": result.ok if result else True}
+                        if result is not None:
+                            response.update({"selected": result.selected, "error": result.error.to_dict() if result.error else None,
+                                             "previews": [item.to_dict() for item in runtime.available_previews]})
+                        if kind == "viewport":
+                            response["viewport"] = {"width": runtime.viewport[0], "height": runtime.viewport[1]}
+                        print("NOVAUI_PREVIEW " + json.dumps(response), flush=True)
+                    except Exception as exc:  # noqa: BLE001 - reject malformed controls without ending preview.
+                        print("NOVAUI_PREVIEW " + json.dumps({
+                            "version": 1, "type": "error", "error": {"type": type(exc).__name__, "message": str(exc)}
+                        }), flush=True)
+                else:
+                    idle.wait(1)
+        except KeyboardInterrupt:
+            pass
+        return 0
+    finally:
+        runtime.close()
 
 
 def _read_project_config(project_dir: Path) -> dict[str, object]:
@@ -210,6 +338,8 @@ def main(argv: list[str] | None = None) -> int:
             return _check(project_dir)
         if args.command == "build":
             return _build(args.outdir, project_dir, debug=args.debug)
+        if args.command == "preview":
+            return _run_preview(args, project_dir)
         config = _read_project_config(project_dir)
         script = (args.script or Path(str(config.get("entry", "app.py")))).expanduser()
         script = (project_dir / script).resolve() if not script.is_absolute() else script.resolve()

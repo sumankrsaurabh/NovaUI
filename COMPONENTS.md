@@ -21,6 +21,48 @@ The visual components `Text`, `Button`, `Image`, `Input`, `Card`, `Center`, `Con
 
 ## Content and controls
 
+### Reusable function components
+
+Import `NovaComponent` from NovaUI, then use the one-word `@NovaComponent`
+decorator on a synchronous Python function to define a reusable component
+factory. It may accept ordinary Python arguments. The function can either
+return a component explicitly or call component constructors directly in its
+body without `return`. NovaUI infers the constructed roots; multiple sibling
+roots are grouped in a layout-neutral `Fragment`. Explicit `Fragment(...)` is
+also available. The resulting tree uses the normal rendering and disposal
+lifecycle. The decorator preserves the function name, docstring, and signature
+for editor tools.
+
+```python
+from novaui import Card, Column, NovaComponent, Text
+
+@NovaComponent
+def InfoCard(title: str, description: str) -> None:
+    Card(Text(title, bold=True), Text(description), padding=16)
+
+Column(InfoCard("Reusable", "Build screens from small functions."))
+```
+
+Import `NovaPreview` and use the one-word `@NovaPreview` decorator separately on a
+zero-argument function to register an IDE
+preview entry point. A preview can call any reusable component factory; it is
+not itself a different component type:
+
+```python
+from novaui import NovaPreview
+
+@NovaPreview(name="Info card")
+def InfoCardPreview():
+    InfoCard("Reusable", "Previewed with NovaUI's regular renderer.")
+```
+
+See [live preview](docs/live-preview.md) for discovery and runtime behavior.
+
+`Fragment(*children)` is a layout-neutral group for explicit sibling
+composition. `@NovaComponent` and `@NovaPreview` use the same grouping when a
+function body creates more than one top-level component and has no explicit
+return value.
+
 ### `Text(text, size=None, bold=False, color=None)`
 
 Renders text with `textContent` (never as HTML). `text` may be a string or zero-argument callable. Callables track reads from `State` instances and recalculate when those states change. `size` is a non-negative pixel integer; `bold` is a bool; `color` is a CSS color string.
@@ -29,9 +71,26 @@ Renders text with `textContent` (never as HTML). `text` may be a string or zero-
 
 Displays a local file from the app's `assets/` directory, for example `ui.Image("assets/logo.png", alt="NovaUI logo")`. `alt` is required. Absolute paths, parent-directory traversal, and paths outside `assets/` are rejected. The CLI resolves assets relative to the entry-point directory; direct Python launches use the working directory. Other static files can be requested at `/assets/<path>` without a bundler.
 
-### `Button(label, on_click=None, disabled=False, variant="primary")`
+### `Button(label, on_click=None, disabled=False, variant="primary", icon=None)`
 
-Renders a keyboard-operable button. `on_click` is registered with an opaque one-shot event ID. `variant` is `primary` or `secondary`.
+Renders a keyboard-operable button. `on_click` is registered with an opaque one-shot event ID. `variant` is `primary` or `secondary`. Optional `icon` places a built-in icon before the label.
+
+### `Icon(name, size=18, label=None)`
+
+Renders a dependency-free stroke icon using safe DOM SVG elements. Names are
+`home`, `grid`, `search`, `settings`, `plus`, `minus`, `arrow_right`,
+`chevron_right`, `chart`, `users`, `file`, `check`, `close`, `menu`, `sun`,
+`moon`, `sparkles`, `download`, `folder`, `heart`, `clock`, and `cube`. `size` is 12–48
+pixels. Without `label` the icon is hidden from assistive technology; provide a
+label when it conveys information by itself.
+
+### `IconButton(icon, label, on_click=None, disabled=False, variant="secondary", size="medium")`
+
+Renders a compact icon-only action. `icon` accepts a built-in icon name or a short plain-text symbol, never HTML; `label` is required and supplies both the accessible name and hover title. `size` accepts `small`, `medium`, or `large`; `variant` follows `Button`. The click callback uses the same opaque event bridge as `Button`.
+
+```python
+ui.IconButton("+", "Add item", on_click=add_item, size="small")
+```
 
 ### `Input(placeholder="", value="", password=False, label=None, on_change=None, disabled=False, read_only=False, input_type="text", ...)`
 
@@ -55,9 +114,9 @@ Flexbox horizontal layout. `align` accepts `start`, `center`, `end`, `stretch`, 
 
 Flexbox vertical layout, with the same alignment options as `Row`.
 
-### `Card(*children, padding=16, radius=12)`
+### `Card(*children, padding=16, radius=None, variant="auto")`
 
-Surface section with theme background, border, and shadow defaults. `radius` is a non-negative pixel integer.
+Surface section with theme background, border, and shadow defaults. By default it follows the theme's `radius` token; an explicit `radius` is a non-negative pixel integer. `variant` accepts `auto`, `solid`, `glass`, or `glass-strong`; glass variants use translucent color mixing and backdrop blur where supported.
 
 ### `Center(child)`
 
@@ -121,15 +180,22 @@ Local baseline (Linux 7.0.0-31-generic x86_64, CPython 3.14.4; median across 7 r
 - `AppShell`, `Header`, `Sidebar`, `MainContent`, `Footer`, `NavigationItem`, and `Breadcrumbs` compose the standard layout components. `Sidebar(collapsed=True)` selects a narrow width; it does not provide interactive collapse state.
 - `Tabs({label: component}, selected=None)` serializes the selected panel and supports a `State[str]` selection.
 - `Alert(message, kind="info")` accepts `info`, `success`, `warning`, or `error`; `Spinner(label="Loading")` displays a status indicator.
+- `Badge(label, tone="neutral")` accepts `neutral`, `info`, `success`, `warning`, or `danger` and renders a compact status label.
+- `ProgressBar(value, max_value=100, label="Progress", show_value=False)` validates a determinate range and exposes its value through native progress-bar ARIA attributes.
+- `Skeleton(variant="text", width=None, height=None, lines=1)` reserves space during loading. `variant` is `text`, `rect`, or `circle`; text skeletons support 1–12 lines and are hidden from assistive technology.
+- `Divider(orientation="horizontal")` renders a semantic separator; `orientation` may be `horizontal` or `vertical`.
 - `Dialog(title, child, open=False, on_confirm=None, on_cancel=None, confirm_label="Confirm", cancel_label="Cancel")` provides separate confirm and cancel events. Pass `State[bool]` for controlled visibility.
 
 See [Forms](FORMS.md) and [Routing](ROUTING.md) for runnable examples and security limits. Checkboxes, radio groups, select, textarea, toast queues, and asynchronous form handlers are not implemented.
 
 ## Shell, theme, and application APIs
 
-- `AppShell(*children, **shared_props)` composes its children in the standard shell layout. `Header`, `MainContent`, and `Footer` are layout helpers with the same child-first convention.
-- `Sidebar(*children, collapsed=False, **shared_props)` renders a sidebar; `collapsed` chooses a narrow width and is not an interactive toggle. `NavigationItem(label, href, active=False)` renders a navigation link. `Breadcrumbs(items)` accepts labels or `(label, href)` pairs.
-- `Theme(mode="light", primary="#6558d3", radius="10px", font_family="Inter, ui-sans-serif, system-ui, sans-serif", name=None, background=None, surface=None, foreground=None, muted=None, border=None, primary_hover=None)` validates theme tokens. Optional colors override `--bg`, `--surface`, `--text`, `--muted`, `--border`, and `--primary-hover`; omitted values retain the built-in light/dark palette. `name` is used for explicit extension registration; it is omitted from renderer output. See [extensions](EXTENSIONS.md).
+- `AppShell(*children, **shared_props)` composes its children in a full-bleed, viewport-height shell. At the application root, NovaUI removes the outer app padding; apply padding to `MainContent` or page content instead. `Header`, `MainContent`, and `Footer` are layout helpers with the same child-first convention.
+- `Scaffold(body, destinations=..., top_bar=None, brand=None, floating_action=None, current_path=None, label="Primary navigation", sidebar_width=256)` provides a full-screen responsive application shell. Destinations are `NavDestination(label, href, icon=None, badge=None)` values. With a root `Router`, the current route is highlighted and destination clicks navigate through NovaUI. Screens wider than 1024px use a labeled sidebar; 641–1024px use a compact icon rail; screens up to 640px use a fixed bottom bar with safe-area spacing. It supports 1–8 local route destinations; place body padding inside the `body` component.
+- `Sidebar(*children, collapsed=False, **shared_props)` renders a sidebar; `collapsed` chooses a narrow width and is not an interactive toggle. `NavigationItem(label, href, active=False, icon=None)` renders an icon-first navigation button when a built-in icon name is supplied. `NavigationBar(*items, label="Primary navigation")` (also `Navbar`) and `SideNavigation(*items, label="Side navigation")` render semantic, accessible navigation landmarks; pass `NavigationItem` children for route changes. `Breadcrumbs(items)` accepts labels or `(label, href)` pairs.
+- `Chart(labels, datasets, kind="line", title="", width=None, height=280)` draws responsive SVG line, bar, area, and doughnut charts with a legend and accessible name. `datasets` may be a mapping of series names to numeric values or a sequence of `ChartDataset(label, values, color=None)`. Every series must match the labels. Up to 500 labels and 8 series are accepted; doughnut values must be non-negative and use one series, with slice colors from NovaUI's palette. Other series colors, when supplied, must be six-digit hex values. No charting dependency is required.
+- `Theme(mode="light", appearance="solid", primary="#4f46e5", radius="22px", font_family="Inter, ui-sans-serif, system-ui, sans-serif", name=None, ...)` validates theme tokens. Set `appearance="glass"` to apply translucent surfaces app-wide. Optional glass controls are `glass_blur` (0–64 pixels) and `glass_opacity` (0.35–0.95). Optional colors include `background`, `surface`, `surface_raised`, `foreground`, `muted`, `border`, `primary_hover`, `on_primary`, `primary_soft`, `success`, `warning`, `danger`, and `info`. `name` is used for explicit extension registration; it is omitted from renderer output. See the [design system guide](docs/design-system.md) and [extensions](EXTENSIONS.md).
+- `App(..., stylesheets=())`, `ui.app(..., stylesheets=())`, and `ui.desktop(..., stylesheets=())` accept up to eight CSS paths relative to the project `assets/` directory, such as `stylesheets=("admin.css",)`. Paths must end in `.css` and cannot traverse outside `assets/`. These styles load after NovaUI's base stylesheet.
 - `State(value)` and `ui.state(value)` provide mutable Python state. Read and assign `.value`, call `.update(value)`, subscribe with `.subscribe(callback)`, and release listeners with `.dispose()`.
 - `App(root, title="NovaUI", theme="light", host="127.0.0.1", port=0, debug=False, extensions=None)` creates a runtime object. `App.set_theme(theme)` accepts `"light"`, `"dark"`, an app-registered theme name, or a `Theme` instance; call it in an event callback to change tokens on the next tree render. `ui.app(root, title=..., theme=..., debug=False, host="127.0.0.1", port=0, extensions=None)` creates and immediately runs it. `ui.desktop(root, title=..., theme=..., width=1200, height=800, min_width=200, min_height=100, resizable=True, fullscreen=False, frameless=False, background_color="#FFFFFF", debug=False, menu=(), on_close=None, extensions=None)` runs it in the optional webview host.
 - `WindowOptions(width=1200, height=800, min_width=200, min_height=100, resizable=True, fullscreen=False, frameless=False, background_color="#FFFFFF")` carries validated desktop settings. `Menu(title, items)`, `MenuItem(title, callback)`, and `MenuSeparator()` describe supported native menu entries.
@@ -145,26 +211,24 @@ Pass a `Theme` to `ui.app` to set CSS variables:
 ```python
 theme = ui.Theme(
     mode="light",
-    primary="#635BFF",
+    primary="#4f46e5",
     radius="12px",
-    font_family="Inter, sans-serif",
-    background="#f7f8fc",
+    font_family="Inter, ui-sans-serif, system-ui, sans-serif",
+    background="#f5f6fa",
     surface="#ffffff",
-    foreground="#202333",
+    foreground="#171a2b",
+    success="#16845b",
 )
 ui.app(ui.Text("Hello"), theme=theme)
 ```
 
-`mode` is `light` or `dark`; color fields must be CSS color names, hex, RGB, or HSL values; `radius` is a non-negative pixel integer or CSS length; and `font_family` accepts a restricted family-list string. Existing `theme="light"` and `theme="dark"` calls remain supported.
+`mode` is `light` or `dark`; color fields must be CSS color names, hex, RGB, or HSL values; `radius` is a non-negative pixel integer or CSS length; and `font_family` accepts a restricted family-list string. Optional `surface_raised`, `primary_soft`, `on_primary`, `primary_hover`, `success`, `warning`, `danger`, and `info` colors customize their matching CSS tokens. Existing `theme="light"` and `theme="dark"` calls remain supported. See the [design system guide](docs/design-system.md) for the complete built-in palette and token scales.
 
 ## Examples
 
-- `python examples/landing.py` — responsive page layout and custom theme.
-- `python examples/dashboard.py` — sidebar-style layout, cards, grid, and scrolling.
-- `python examples/form_validation.py` — input callback validation.
-- `python examples/login.py` — controlled login fields.
-- `python -m examples.phase11_studio.app` — predefined component playground.
-- `python -m examples.phase11_admin.app` — routed administration dashboard.
-- `python -m examples.phase11_pyoffice.app` — desktop plain-text notes prototype (desktop extra required).
+Runnable applications are in [`examples/`](examples/README.md): a reactive
+counter, registration form, routed dashboard with a data table, theme switcher,
+small component gallery, and optional desktop file-picker app. These examples
+are intentionally limited to components implemented by the current runtime.
 
-Icons, dividers, badges, tooltips, checkbox/radio/select/textarea controls, toast notifications, and machine-readable component metadata remain planned.
+Tooltip, checkbox/radio/select/textarea controls, toast notifications, and machine-readable component metadata remain planned. The built-in stroke icon set is limited to the names listed under `Icon`; it is not a general-purpose icon pack.

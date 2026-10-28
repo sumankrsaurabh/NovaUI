@@ -47,7 +47,9 @@
 
 ## 0.4 — Design system
 - [x] Optional semantic color tokens for application background, surfaces, text, muted text, borders, and primary hover
-- [ ] Component variants and typography/spacing scales
+- [x] Theme-level glass appearance and per-card solid/glass/glass-strong variants
+- [x] Shared typography, spacing, radius, focus, shadow, and motion tokens
+- [x] App-scoped stylesheets confined to project assets
 - [ ] System theme detection
 - [ ] Responsive breakpoints
 - [x] Reduced-motion support for framework animations, transitions, and spinner
@@ -85,17 +87,21 @@
 
 ## 0.6 — Data UI
 - [x] Sortable/filterable/searchable `DataTable` with paging and selection
+- [x] Responsive SVG line, bar, area, and doughnut charts
+- [x] Semantic horizontal and side navigation landmarks
+- [x] Responsive `Scaffold` with route-aware sidebar, compact rail, and mobile bottom navigation
 - [ ] Editable data grid
 - [ ] Tree view
 - [ ] Virtualized list
-- [ ] Charts through optional adapters
 
 ## Phase 7 — Advanced components (in progress)
 - [x] Semantic, searchable, sortable `DataTable` with per-column filtering, selection, pagination, formatters, and row callbacks
+- [x] Dependency-free SVG `Chart` for line, bar, area, and doughnut datasets
+- [x] `NavigationBar`/`Navbar` and `SideNavigation` semantic components
+- [x] Route-aware `Scaffold` with responsive desktop, tablet, and mobile navigation
 - [ ] Editable `DataGrid` and clipboard integration
 - [ ] Toolbar, context menu, and command palette
 - [ ] Rich-text editor integration after dependency/license/security review
-- [ ] Charts through a documented optional frontend adapter
 - [ ] File explorer, drag-and-drop, upload, and download components
 - [ ] Accessibility and performance review for advanced widgets
 
@@ -161,12 +167,31 @@
 - [ ] Configure private vulnerability reporting before the first public release
 
 ## Phase 11 — Real-world application validation
+
+The original larger validation applications and showcase were removed. A
+curated set of small runnable examples is now maintained under `examples/`;
+the Admin and PyOffice prototypes remain out of the shipped source tree.
+
 - [x] NovaUI Studio component catalogue, selection, property notes, previews, and theme toggle
 - [x] NovaUI Admin routes, form validation, table search/sort/filter/pagination, and confirmed deletion
 - [x] PyOffice Notes prototype with explicit UTF-8 open/save and keyboard shortcuts
 - [x] Add app workflows and local file persistence tests without requiring a GUI
 - [x] Record framework gaps exposed by integration work
+- [x] Restore focused examples for state, forms, routes/tables, themes, components, and desktop APIs
 - [ ] Add a native multiline text editor or accessible textarea before expanding document editing
 - [ ] Add charts only after selecting and testing a maintained frontend adapter
 - [ ] Add machine-readable component metadata if more developer tooling needs it
 - [ ] Manually validate desktop dialogs and shortcuts on supported graphical platforms
+
+## Phase 12 — Live preview (experimental)
+- [x] `@ui.preview` metadata API, multiple named previews, and zero-argument validation
+- [x] Discovery without invoking preview functions, renderer output, event handling, structured errors, reload cleanup
+- [x] Debounced polling watcher with last-successful-render preservation and syntax-error recovery
+- [x] Loopback renderer with dynamic port and random token required for tree/event API requests
+- [x] Versioned JSON-lines control protocol and `novaui preview` CLI
+- [x] VS Code extension source with preview selection, refresh, theme, viewport, error/loading status, CSP, and child cleanup
+- [x] Examples and live-preview guide
+- [ ] VS Code Extension Host integration tests and Marketplace packaging/review
+- [ ] Browser automated test for button interaction and preview refresh
+- [ ] Preserve in-memory state across hot reloads and support broader dependency tracking
+- [ ] Validate current Webview sandbox/CSP behavior on Linux, Windows, and macOS

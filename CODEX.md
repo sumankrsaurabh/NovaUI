@@ -2,7 +2,7 @@
 
 Start by reading `AGENTS.md`, `README.md`, `ARCHITECTURE.md`, and `ROADMAP.md`.
 
-Your task is to develop NovaUI incrementally, not to generate a huge untested code dump. First inspect the repository, run tests, and run `examples/counter.py`. Then implement the next unfinished roadmap milestone with tests.
+Your task is to develop NovaUI incrementally, not to generate a huge untested code dump. First inspect the repository and relevant tests. There are no bundled application examples; use the getting-started guide when a runnable app is needed. Then implement the next unfinished roadmap milestone with tests.
 
 Requirements:
 - Keep the API concise and Pythonic.

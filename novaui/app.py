@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 import secrets
 import sys
 import threading
@@ -30,6 +31,23 @@ from .theme import Theme
 
 _NO_EVENT_VALUE = object()
 _logger = logging.getLogger(__name__)
+_STYLESHEET_PATH = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9._/-]*\.css$")
+
+
+def _validate_stylesheets(stylesheets: tuple[str, ...] | list[str]) -> tuple[str, ...]:
+    if not isinstance(stylesheets, (tuple, list)):
+        raise TypeError("stylesheets must be a list or tuple of CSS paths under the project's assets/ directory.")
+    if len(stylesheets) > 8:
+        raise ValueError("At most 8 application stylesheets may be configured.")
+    validated: list[str] = []
+    for path in stylesheets:
+        if (not isinstance(path, str) or not _STYLESHEET_PATH.fullmatch(path)
+                or any(part in {"", ".", ".."} for part in path.split("/"))):
+            raise ValueError("Stylesheet paths must be relative .css paths under assets/ without traversal segments.")
+        if path in validated:
+            raise ValueError(f"Duplicate application stylesheet: {path!r}.")
+        validated.append(path)
+    return tuple(validated)
 
 
 def _package_version() -> str:
@@ -42,7 +60,8 @@ def _package_version() -> str:
 class App:
     def __init__(self, root: Component, title: str = "NovaUI", theme: str | Theme = "light",
                  host: str = "127.0.0.1", port: int = 0, debug: bool = False,
-                 extensions: Extensions | None = None):
+                 extensions: Extensions | None = None,
+                 stylesheets: tuple[str, ...] | list[str] = ()):
         if not isinstance(root, Component):
             raise TypeError("app() expects a NovaUI Component as its root.")
         if not isinstance(theme, (str, Theme)):
@@ -51,6 +70,7 @@ class App:
             raise TypeError("debug must be a bool.")
         self.root = root
         self.title = title
+        self.stylesheets = _validate_stylesheets(stylesheets)
         if extensions is not None and not isinstance(extensions, Extensions):
             raise TypeError("extensions must be a ui.Extensions instance or None.")
         self._extension_components = dict(extensions.components) if extensions else {}
@@ -80,6 +100,7 @@ class App:
         self.asset_root = project_root.resolve()
         self._handlers: dict[str, Callable[..., Any]] = {}
         self._handler_lock = threading.RLock()
+        self._preview_lock = threading.RLock()
         self._tree_generation = 0
         self._components: dict[int, Component] = {}
         self._disposed = False
@@ -87,6 +108,11 @@ class App:
         self.window: DesktopWindow | None = None
         self.shortcuts = ShortcutRegistry()
         self._close_callback: Callable[[], bool | None] | None = None
+        # Private hooks used only by the live-preview host. Ordinary apps do
+        # not emit polling metadata or require a preview session token.
+        self._preview_poll_ms: int | None = None
+        self._preview_token: str | None = None
+        self._preview_error: dict[str, Any] | None = None
         for plugin in self._plugins:
             check_compatibility(plugin, _package_version())
             setup = getattr(plugin, "setup", None)
@@ -152,6 +178,10 @@ class App:
         return event_id
 
     def serialize_tree(self, route_path: str | None = None) -> dict[str, Any]:
+        with self._preview_lock:
+            return self._serialize_tree_locked(route_path)
+
+    def _serialize_tree_locked(self, route_path: str | None = None) -> dict[str, Any]:
         # Rebuild the registry for the current tree so stale event IDs stop working.
         with self._handler_lock:
             if self._disposed:
@@ -176,12 +206,17 @@ class App:
                 visited.add(identity)
                 self._components[identity] = component
                 pending.extend(component.iter_children())
-            return {
+            tree = {
                 "title": self.title,
                 "theme": self.theme.to_dict() if isinstance(self.theme, Theme) else self.theme,
+                "stylesheets": list(self.stylesheets),
                 "root": self.root.to_dict(self.register_event),
                 "shortcuts": self.shortcuts.to_dict(self.register_event),
             }
+            if self._preview_poll_ms is not None:
+                tree["preview_poll_ms"] = self._preview_poll_ms
+                tree["preview_error"] = self._preview_error
+            return tree
 
     def navigate(self, path: str) -> None:
         """Change the current route when this app is rooted at a Router."""
@@ -230,6 +265,10 @@ class App:
         self._close_callback = callback
 
     def dispatch_event(self, event_id: str, value: Any = _NO_EVENT_VALUE) -> None:
+        with self._preview_lock:
+            self._dispatch_event_locked(event_id, value)
+
+    def _dispatch_event_locked(self, event_id: str, value: Any = _NO_EVENT_VALUE) -> None:
         with self._handler_lock:
             callback = self._handlers.pop(event_id, None)
             generation = self._tree_generation
@@ -362,6 +401,7 @@ def app(
     host: str = "127.0.0.1",
     port: int = 0,
     extensions: Extensions | None = None,
+    stylesheets: tuple[str, ...] | list[str] = (),
 ) -> App:
     """Create and run an application. Pass --desktop in argv to select desktop hosting."""
     parser = argparse.ArgumentParser(add_help=False)
@@ -372,7 +412,7 @@ def app(
     parser.add_argument("--port", type=int, default=port)
     args, _ = parser.parse_known_args()
     application = App(root=root, title=title, theme=theme, debug=debug or args.debug, host=args.host, port=args.port,
-                      extensions=extensions)
+                      extensions=extensions, stylesheets=stylesheets)
     application.run(desktop=args.desktop, open_browser=not args.no_browser)
     return application
 
@@ -394,6 +434,7 @@ def desktop(
     menu: tuple[Menu, ...] | list[Menu] = (),
     on_close: Callable[[], bool | None] | None = None,
     extensions: Extensions | None = None,
+    stylesheets: tuple[str, ...] | list[str] = (),
 ) -> App:
     """Create and run a desktop window using the existing NovaUI frontend."""
     options = WindowOptions(
@@ -406,7 +447,8 @@ def desktop(
         frameless=frameless,
         background_color=background_color,
     )
-    application = App(root=root, title=title, theme=theme, debug=debug, extensions=extensions)
+    application = App(root=root, title=title, theme=theme, debug=debug, extensions=extensions,
+                      stylesheets=stylesheets)
     if on_close is not None:
         application.on_close(on_close)
     application.run(desktop=True, window_options=options, menu=menu)

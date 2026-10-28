@@ -1,0 +1,30 @@
+{
+  "name": "novaui-live-preview",
+  "displayName": "NovaUI Live Preview",
+  "description": "Live component previews for NovaUI Python projects.",
+  "version": "0.1.0",
+  "publisher": "novaui",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other", "Visualization"],
+  "activationEvents": ["onLanguage:python", "onCommand:novaui.openLivePreview"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "novaui.openLivePreview", "title": "NovaUI: Open Live Preview" },
+      { "command": "novaui.refreshPreview", "title": "NovaUI: Refresh Preview" },
+      { "command": "novaui.selectPreview", "title": "NovaUI: Select Preview" },
+      { "command": "novaui.resetPreviewState", "title": "NovaUI: Reset Preview State" }
+    ],
+    "configuration": {
+      "title": "NovaUI",
+      "properties": {
+        "novaui.pythonPath": { "type": "string", "default": "", "description": "Python executable that can import NovaUI. Defaults to python on Windows and python3 on macOS/Linux." }
+      }
+    }
+  },
+  "scripts": {
+    "check": "node --check extension.js && node --check tests/integration.test.js && node --check tests/run-vscode-host.js && node --check tests/vscode-host.test.js",
+    "test:integration": "node --test tests/integration.test.js",
+    "test:vscode": "node tests/run-vscode-host.js"
+  }
+}

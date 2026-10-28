@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import mimetypes
@@ -171,6 +172,13 @@ def make_server(application):
                 and parsed_origin.password is None
             )
 
+        def _valid_preview_token(self) -> bool:
+            expected = getattr(application, "_preview_token", None)
+            if expected is None:
+                return True
+            supplied = self.headers.get("X-NovaUI-Preview-Token", "")
+            return bool(supplied) and hmac.compare_digest(expected, supplied)
+
         def do_GET(self):
             if not self._valid_host():
                 self._send(421, b"Misdirected request", "text/plain; charset=utf-8")
@@ -180,6 +188,9 @@ def make_server(application):
             if path == "/api/tree":
                 if self.headers.get("X-NovaUI-Request") != "tree":
                     self._send(403, b"Invalid tree request", "text/plain; charset=utf-8")
+                    return
+                if not self._valid_preview_token():
+                    self._send(403, b"Invalid or missing preview session token", "text/plain; charset=utf-8")
                     return
                 route_path = parse_qs(parsed.query).get("path", ["/"])[0]
                 try:
@@ -244,6 +255,9 @@ def make_server(application):
                 return
             if not self._valid_same_origin_post():
                 self._send(403, b"Cross-origin event request rejected", "text/plain; charset=utf-8")
+                return
+            if not self._valid_preview_token():
+                self._send(403, b"Invalid or missing preview session token", "text/plain; charset=utf-8")
                 return
             try:
                 length = int(self.headers.get("Content-Length", "0"))

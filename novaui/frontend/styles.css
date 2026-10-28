@@ -1,33 +1,119 @@
 :root {
+  /* NovaUI's light, crisp indigo visual language. No remote font fetch required. */
   font-family: var(--font-family, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #f7f8fc;
+  --bg: #f5f6fa;
   --surface: #ffffff;
-  --text: #202333;
-  --muted: #6b7280;
-  --border: #e4e7ef;
-  --primary: #6558d3;
-  --primary-hover: #5144bd;
-  --shadow: 0 12px 34px rgba(30, 35, 90, .08);
+  --surface-raised: #ffffff;
+  --text: #171a2b;
+  --muted: #697086;
+  --border: #e3e6ef;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --on-primary: #ffffff;
+  --primary-soft: #eef0ff;
+  --success: #16845b;
+  --warning: #a85b08;
+  --danger: #c43d4b;
+  --info: #1873b8;
+  --focus-ring: color-mix(in srgb, var(--primary) 35%, transparent);
+  --radius-sm: 9px;
+  --radius: 22px;
+  --radius-lg: 26px;
+  --radius-xl: 30px;
+  --radius-control: 14px;
+  --radius-overlay: 26px;
+  --radius-pill: 999px;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-weight-medium: 550;
+  --font-weight-semibold: 650;
+  --font-weight-bold: 700;
+  --line-height-body: 1.5;
+  --line-height-heading: 1.2;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --control-height: 42px;
+  /* Most surfaces use borders and tonal contrast; reserve depth for overlays. */
+  --shadow-sm: 0 1px 2px rgba(25, 32, 65, .035);
+  --shadow: 0 4px 12px rgba(25, 32, 65, .055);
+  --shadow-lg: 0 12px 32px rgba(25, 32, 65, .11);
+  --shadow-primary: 0 6px 16px color-mix(in srgb, var(--primary) 22%, transparent);
+  --shadow-primary-hover: 0 8px 20px color-mix(in srgb, var(--primary) 27%, transparent);
+  --shadow-icon: 0 4px 14px color-mix(in srgb, var(--primary) 13%, transparent);
+  --shadow-icon-hover: 0 6px 16px color-mix(in srgb, var(--primary) 18%, transparent);
+  --radius-icon-button: 999px;
+  --motion-fast: 120ms;
+  --motion-normal: 200ms;
+  --ease-standard: cubic-bezier(.2, .7, .2, 1);
+  --motion-interactive: 180ms;
+  --ease-natural: cubic-bezier(.2, .75, .25, 1);
+  --glass-blur: 24px;
+  --glass-opacity: 64%;
+  --glass-edge: rgba(255, 255, 255, .68);
+  --glass-sheen: rgba(255, 255, 255, .34);
+  --glass-highlight: rgba(255, 255, 255, .56);
+  --glass-shadow: 0 5px 18px rgba(35, 43, 92, .065), inset 0 1px 0 var(--glass-highlight);
+  --z-dropdown: 20;
+  --z-overlay: 50;
+  --z-toast: 80;
+  --app-padding: 24px;
   color: var(--text);
   background: var(--bg);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #11131a;
-  --surface: #1b1e28;
-  --text: #f4f5fb;
-  --muted: #a2a7b8;
-  --border: #303442;
-  --primary: #a49aff;
-  --primary-hover: #b8b0ff;
-  --shadow: 0 12px 34px rgba(0, 0, 0, .24);
+  --bg: #10121b;
+  --surface: #191c29;
+  --surface-raised: #202435;
+  --text: #f2f3fa;
+  --muted: #a3a9bc;
+  --border: #303548;
+  --primary: #a5a3ff;
+  --primary-hover: #bebcff;
+  --on-primary: #17182d;
+  --primary-soft: #282747;
+  --success: #55c99a;
+  --warning: #f0b45e;
+  --danger: #ff858c;
+  --info: #72bdf2;
+  --focus-ring: color-mix(in srgb, var(--primary) 45%, transparent);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .12);
+  --shadow: 0 4px 14px rgba(0, 0, 0, .16);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, .24);
+  --shadow-primary: 0 6px 18px color-mix(in srgb, var(--primary) 24%, transparent);
+  --shadow-primary-hover: 0 8px 22px color-mix(in srgb, var(--primary) 30%, transparent);
+  --shadow-icon: 0 4px 14px color-mix(in srgb, var(--primary) 18%, transparent);
+  --shadow-icon-hover: 0 6px 18px color-mix(in srgb, var(--primary) 24%, transparent);
+  --glass-edge: rgba(255, 255, 255, .18);
+  --glass-opacity: 72%;
+  --glass-sheen: rgba(255, 255, 255, .09);
+  --glass-highlight: rgba(255, 255, 255, .15);
+  --glass-shadow: 0 6px 20px rgba(0, 0, 0, .14), inset 0 1px 0 var(--glass-highlight);
 }
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); }
-#app { min-height: 100vh; padding: 24px; }
+html { color-scheme: light; }
+body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-size: var(--font-size-md); line-height: var(--line-height-body); -webkit-font-smoothing: antialiased; }
+:root[data-appearance="glass"] body {
+  background:
+    radial-gradient(ellipse at 7% 12%, color-mix(in srgb, var(--primary) 36%, transparent), transparent 40rem),
+    radial-gradient(ellipse at 94% 14%, rgba(72, 193, 255, .42), transparent 38rem),
+    radial-gradient(ellipse at 60% 100%, rgba(187, 128, 255, .38), transparent 46rem),
+    radial-gradient(ellipse at 48% 42%, rgba(255, 255, 255, .2), transparent 48rem),
+    var(--bg);
+}
+#app { min-height: 100vh; padding: var(--app-padding); }
 .loading { color: var(--muted); }
+.novaui-preview-error { position: sticky; top: 0; z-index: 1000; padding: 10px 16px; border-bottom: 1px solid #d33; background: #fff0f0; color: #8f1717; font: 13px/1.4 ui-monospace, monospace; white-space: pre-wrap; }
+:root[data-theme="dark"] .novaui-preview-error { background: #371c22; color: #ffd7dc; }
 .nova-layout { display: flex; min-width: 0; }
 .nova-layout.row { flex-direction: row; }
 .nova-layout.column { flex-direction: column; }
@@ -53,58 +139,176 @@ body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); 
 .nova-stack > * { grid-area: 1 / 1; }
 .nova-wrap { display: flex; flex-wrap: wrap; min-width: 0; }
 .nova-card {
-  background: var(--surface);
+  background: var(--surface-raised, var(--surface));
   border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  box-shadow: none;
   min-width: 0;
+  border-radius: var(--radius);
+  transition: border-color var(--motion-normal) var(--ease-standard), background-color var(--motion-normal) var(--ease-standard);
 }
-.nova-text { line-height: 1.45; overflow-wrap: anywhere; }
+.nova-card.glass,
+.nova-card.glass-strong {
+  background:
+    linear-gradient(138deg, var(--glass-sheen), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, .08), transparent 55%, color-mix(in srgb, var(--primary) 4%, transparent)),
+    color-mix(in srgb, var(--surface-raised, var(--surface)) var(--glass-opacity), transparent);
+  border-color: var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+  transition: border-color var(--motion-normal) var(--ease-standard), background-color var(--motion-normal) var(--ease-standard);
+}
+.nova-card.glass-strong { --glass-opacity: 62%; }
+.nova-card.solid { background: var(--surface-raised, var(--surface)); border-color: var(--border); }
+.nova-card.glass:hover, .nova-card.glass-strong:hover,
+:root[data-appearance="glass"] .nova-card:not(.solid):hover {
+  border-color: color-mix(in srgb, var(--primary) 18%, var(--glass-edge, var(--border)));
+}
+.nova-text { line-height: var(--line-height-body); overflow-wrap: anywhere; }
 .nova-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   appearance: none;
   border: 1px solid transparent;
-  border-radius: var(--radius, 10px);
-  min-height: 40px;
+  border-radius: var(--radius-pill);
+  min-height: var(--control-height, 42px);
   padding: 9px 16px;
   font: inherit;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
   cursor: pointer;
-  transition: transform .12s ease, background .12s ease, opacity .12s ease;
+  transition: transform var(--motion-interactive) var(--ease-natural), background-color var(--motion-interactive) var(--ease-natural), border-color var(--motion-interactive) var(--ease-natural), box-shadow var(--motion-interactive) var(--ease-natural), opacity var(--motion-interactive) var(--ease-natural);
 }
 .nova-button:active { transform: scale(.98); }
 .nova-button:focus-visible, .nova-input:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
-.nova-button.primary { background: var(--primary); color: white; }
-.nova-button.primary:hover { background: var(--primary-hover); }
+.nova-button.primary {
+  background: var(--primary);
+  background-image: linear-gradient(145deg,
+    color-mix(in srgb, var(--primary) 72%, white),
+    var(--primary) 58%,
+    color-mix(in srgb, var(--primary) 86%, #3117d8));
+  color: var(--on-primary, #fff);
+  box-shadow: var(--shadow-primary), inset 0 1px rgba(255, 255, 255, .3);
+}
+.nova-button.primary:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+  background-image: linear-gradient(145deg,
+    color-mix(in srgb, var(--primary) 64%, white),
+    var(--primary-hover, var(--primary)) 58%,
+    color-mix(in srgb, var(--primary) 82%, #3117d8));
+  box-shadow: var(--shadow-primary-hover), inset 0 1px rgba(255, 255, 255, .32);
+}
 .nova-button.secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+.nova-button.secondary:hover { background: var(--primary-soft, var(--surface)); border-color: color-mix(in srgb, var(--primary) 30%, var(--border)); }
+.nova-button:not(.nova-icon-button):hover:not(:disabled) { transform: none; }
 .nova-button:disabled { opacity: .55; cursor: not-allowed; }
-.nova-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.nova-button:active:not(:disabled) { transform: scale(.985); }
+.nova-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: var(--text); }
 .nova-form { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .nova-form-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .nova-form-status { min-height: 1.4em; }
 .nova-form-loading { color: var(--muted); }
-.nova-app-shell { width: 100%; }
+.nova-app-shell { width: 100%; min-height: 100vh; }
+#app.nova-app-root-shell { padding: 0; }
+.nova-app-shell > .nova-sidebar { min-height: 100vh; border-radius: 0; }
+.nova-app-shell > .nova-main-content { min-width: 0; padding: 0; }
+.nova-app-shell > .nova-main-content > .nova-header { flex: 0 0 auto; border-radius: 0; }
+.nova-scaffold {
+  display: grid;
+  grid-template-columns: 256px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 100vh;
+  width: 100%;
+  color: var(--text);
+}
+#app.nova-scaffold-root { padding: 0; }
+.nova-scaffold-sidebar {
+  position: sticky;
+  top: 0;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  min-height: 100vh;
+  padding: 20px 14px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+.nova-scaffold-brand { display: flex; align-items: center; min-height: 42px; }
+.nova-scaffold-navigation { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.nova-scaffold-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--motion-interactive) var(--ease-natural), background-color var(--motion-interactive) var(--ease-natural), border-color var(--motion-interactive) var(--ease-natural), transform var(--motion-interactive) var(--ease-natural);
+}
+.nova-scaffold-nav-item:hover { background: color-mix(in srgb, var(--primary) 7%, var(--surface)); }
+.nova-scaffold-nav-item:active { transform: scale(.985); }
+.nova-scaffold-nav-item:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.nova-scaffold-nav-item.active { border-color: color-mix(in srgb, var(--primary) 20%, var(--border)); background: var(--primary-soft); color: var(--primary); font-weight: var(--font-weight-semibold); }
+.nova-scaffold-nav-icon { display: grid; flex: 0 0 20px; place-items: center; color: inherit; }
+.nova-scaffold-nav-icon .nova-icon-svg { width: 19px; height: 19px; }
+.nova-scaffold-nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nova-scaffold-nav-badge { margin-left: auto; padding: 2px 7px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); color: var(--muted); font-size: var(--font-size-xs); font-variant-numeric: tabular-nums; }
+.nova-scaffold-topbar { grid-column: 2; grid-row: 1; display: flex; align-items: center; min-width: 0; min-height: 64px; padding: 10px 24px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.nova-scaffold-topbar > .nova-layout.row { flex: 1 1 auto; width: 100%; }
+.nova-scaffold-topbar[hidden] { display: none; }
+.nova-scaffold-body { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; }
+.nova-scaffold-floating-action { position: fixed; z-index: var(--z-overlay); right: 24px; bottom: 24px; }
+.nova-scaffold-floating-action[hidden] { display: none; }
 .nova-sidebar { flex: 0 0 auto; background: var(--surface); border-right: 1px solid var(--border); }
 .nova-main-content { flex: 1 1 auto; }
 .nova-header, .nova-footer { border-bottom: 1px solid var(--border); }
 .nova-footer { border-top: 1px solid var(--border); border-bottom: 0; }
-.nova-navigation-item { width: 100%; text-align: left; }
-.nova-navigation-item.active { font-weight: 700; }
+.nova-navigation-item { width: 100%; text-align: left; display: flex; align-items: center; justify-content: flex-start; gap: 10px; }
+.nova-navigation-item.active {
+  background-color: var(--primary-soft);
+  border-color: color-mix(in srgb, var(--primary) 24%, var(--border));
+  color: var(--primary);
+  font-weight: var(--font-weight-semibold);
+}
+.nova-navigation-item.active .nova-button-icon { color: var(--primary); }
+.nova-navigation { display: flex; min-width: 0; gap: 8px; }
+.nova-navigation.orientation-horizontal { flex-direction: row; align-items: center; flex-wrap: wrap; }
+.nova-navigation.orientation-vertical { flex-direction: column; align-items: stretch; }
+.nova-navigation-bar { width: 100%; min-height: 44px; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.nova-navigation-bar .nova-navigation-item { width: auto; }
+.nova-side-navigation { width: 100%; }
+.nova-side-navigation .nova-navigation-item { width: 100%; }
 .nova-breadcrumbs { flex-wrap: wrap; }
-.nova-tab-list { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
-.nova-tab { appearance: none; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); padding: 10px 14px; font: inherit; cursor: pointer; }
+.nova-tab-list { display: flex; gap: 6px; border-bottom: 1px solid var(--border); }
+.nova-tab { appearance: none; border: 0; border-bottom: 2px solid transparent; border-radius: var(--radius-control) var(--radius-control) 0 0; background: transparent; color: var(--muted); padding: 10px 14px; font: inherit; cursor: pointer; transition: color var(--motion-interactive) var(--ease-natural), background-color var(--motion-interactive) var(--ease-natural), border-color var(--motion-interactive) var(--ease-natural); }
 .nova-tab.active { border-bottom-color: var(--primary); color: var(--text); font-weight: 600; }
-.nova-tab:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent); outline-offset: 2px; }
+.nova-tab:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .nova-tab-panel { padding-top: 16px; }
-.nova-alert { border: 1px solid var(--border); border-radius: var(--radius, 10px); padding: 12px 16px; background: var(--surface); }
-.nova-alert.success { border-color: #32a36a; }
-.nova-alert.warning { border-color: #d38a16; }
-.nova-alert.error { border-color: #c43d3d; }
+.nova-alert { border: 1px solid var(--border); border-radius: var(--radius-control); padding: 12px 16px; background: var(--surface); }
+.nova-alert.success { border-color: var(--success); }
+.nova-alert.warning { border-color: var(--warning); }
+.nova-alert.error { border-color: var(--danger); }
+.nova-alert.info { border-color: var(--info); }
 .nova-spinner { display: inline-flex; align-items: center; gap: 10px; }
 .nova-spinner-mark { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: nova-spin .8s linear infinite; }
 @keyframes nova-spin { to { transform: rotate(360deg); } }
-.nova-dialog { width: min(92vw, 520px); max-height: 85vh; border: 1px solid var(--border); border-radius: var(--radius, 10px); padding: 24px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.nova-dialog { width: min(92vw, 520px); max-height: 85vh; border: 1px solid var(--border); border-radius: var(--radius-overlay); padding: 24px; background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg); }
 .nova-dialog::backdrop { background: rgb(0 0 0 / .45); }
 .nova-dialog-title { margin: 0 0 12px; font-size: 20px; }
 .nova-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
@@ -113,31 +317,36 @@ body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); 
 :root[data-theme="dark"] .field-error { color: #ff8d85; }
 .nova-input {
   width: 100%;
-  min-height: 42px;
+  min-height: var(--control-height, 42px);
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius, 10px);
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--text);
   font: inherit;
+  transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
 }
+.nova-input::placeholder { color: var(--muted); opacity: .78; }
+.nova-input:hover:not(:disabled) { border-color: color-mix(in srgb, var(--primary) 32%, var(--border)); }
+.nova-input:disabled, .nova-input[readonly] { cursor: not-allowed; opacity: .68; }
 .nova-data-table { min-width: 0; color: var(--text); background: var(--surface); }
 .nova-table-search, .nova-table-filter {
   width: 100%; min-width: 8rem; min-height: 36px; padding: 7px 9px;
-  border: 1px solid var(--border); border-radius: 7px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
   color: var(--text); font: inherit;
 }
 .nova-table-search { max-width: 24rem; margin-bottom: 10px; }
-.nova-table-scroll { width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+.nova-table-scroll { width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
 .nova-table { width: 100%; border-collapse: collapse; text-align: left; }
 .nova-table th, .nova-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .nova-table th { background: var(--surface); color: var(--muted); font-size: .875rem; font-weight: 650; }
+.nova-table tbody tr { transition: background-color var(--motion-interactive) var(--ease-natural); }
 .nova-table tbody tr:last-child td { border-bottom: 0; }
 .nova-table tbody tr.selected { background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }
-.nova-table tbody tr[tabindex]:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: -3px; }
+.nova-table tbody tr[tabindex]:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -3px; }
 .nova-table-sort { border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; cursor: pointer; text-align: left; }
 .nova-table-sort:focus-visible, .nova-table-search:focus-visible, .nova-table-filter:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent); outline-offset: 1px;
+  outline: 3px solid var(--focus-ring); outline-offset: 1px;
 }
 .nova-table-status { min-height: 1.5em; margin: 8px 0; color: var(--muted); font-size: .875rem; }
 .nova-table-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
@@ -145,6 +354,19 @@ body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); 
 .nova-table-actions { white-space: nowrap; }
 .nova-table-actions .nova-button { min-height: 34px; margin-right: 6px; padding: 5px 10px; }
 .nova-data-table input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--primary); vertical-align: middle; }
+.nova-chart { display: block; min-width: 0; margin: 0; padding: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); }
+.nova-chart-title { display: block; margin-bottom: 8px; font-weight: var(--font-weight-semibold); }
+.nova-chart svg { display: block; width: 100%; overflow: visible; }
+.nova-chart-gridline { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 5; vector-effect: non-scaling-stroke; }
+.nova-chart-axis-label { fill: var(--muted); font: 11px var(--font-family, system-ui, sans-serif); }
+.nova-chart-line { stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.nova-chart-area { opacity: .15; }
+.nova-chart-point { stroke: var(--surface); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.nova-chart-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; padding: 4px 0 0; color: var(--muted); font-size: var(--font-size-xs); }
+.nova-chart-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.nova-chart-swatch { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; }
+.nova-chart-center-label { fill: var(--text); font: 650 20px var(--font-family, system-ui, sans-serif); }
+.nova-chart-empty { display: grid; min-height: 120px; place-items: center; color: var(--muted); }
 .nova-spacer { flex: 0 0 auto; }
 .nova-animated { min-width: 0; }
 .nova-animated.enter-fade { animation-name: nova-fade; animation-fill-mode: both; }
@@ -161,9 +383,73 @@ body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); 
 @keyframes nova-pop { 0% { opacity: 0; transform: scale(.92); } 70% { transform: scale(1.02); } 100% { opacity: 1; transform: scale(1); } }
 .error { color: #d33; }
 @media (max-width: 640px) {
-  #app { padding: 16px; }
+  :root { --app-padding: 16px; }
   .nova-layout.row { flex-wrap: wrap; }
   .nova-grid.columns-2, .nova-grid.columns-many { --nova-grid-columns: 1; }
+  .nova-sidebar { width: 100% !important; border-right: 0; border-bottom: 1px solid var(--border); }
+  .nova-app-shell > .nova-sidebar { min-height: auto; }
+  .nova-navigation-bar { align-items: stretch; }
+  .nova-navigation-bar .nova-navigation-item { flex: 1 1 auto; }
+  .nova-scaffold { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: auto minmax(0, 1fr); padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
+  .nova-scaffold-sidebar { display: contents; }
+  .nova-scaffold-brand { display: none; }
+  .nova-scaffold-navigation {
+    position: fixed;
+    z-index: var(--z-overlay);
+    right: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    left: 50%;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 4px;
+    width: max-content;
+    max-width: calc(100vw - 24px);
+    min-height: 64px;
+    padding: 6px max(8px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left));
+    overflow-x: auto;
+    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    box-shadow: 0 8px 28px rgba(26, 31, 58, .16), inset 0 1px 0 rgba(255, 255, 255, .62);
+    transform: translateX(-50%);
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .nova-scaffold-navigation::-webkit-scrollbar { display: none; }
+  .nova-scaffold-nav-item {
+    position: relative;
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    width: auto;
+    min-width: 58px;
+    min-height: 50px;
+    padding: 5px 12px;
+    border-radius: var(--radius-pill);
+    text-align: center;
+    font-size: 11px;
+  }
+  .nova-scaffold-nav-item.active { background: color-mix(in srgb, var(--primary) 11%, var(--surface)); }
+  .nova-scaffold-nav-icon { flex-basis: auto; }
+  .nova-scaffold-nav-badge { position: absolute; top: 1px; right: 7px; margin: 0; padding: 1px 5px; font-size: 10px; }
+  .nova-scaffold-topbar { grid-column: 1; grid-row: 1; padding: 10px 16px; }
+  .nova-scaffold-body { grid-column: 1; grid-row: 2; }
+  .nova-scaffold-floating-action { right: 16px; bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .nova-main-content { width: 100%; }
+  .nova-button { max-width: 100%; }
+}
+@media (min-width: 641px) and (max-width: 1024px) {
+  .nova-scaffold { grid-template-columns: 80px minmax(0, 1fr) !important; }
+  .nova-scaffold-sidebar { align-items: center; padding: 18px 8px; }
+  .nova-scaffold-brand { display: none; }
+  .nova-scaffold-navigation { width: 100%; }
+  .nova-scaffold-nav-item { justify-content: center; padding: 8px; }
+  .nova-scaffold-nav-label, .nova-scaffold-nav-badge { display: none; }
+  .nova-scaffold-nav-icon { flex-basis: auto; }
+  .nova-scaffold-topbar { padding-right: 18px; padding-left: 18px; }
 }
 @media (min-width: 641px) and (max-width: 900px) {
   .nova-grid.columns-many { --nova-grid-columns: 2; }
@@ -179,38 +465,298 @@ body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); 
 
 .nova-center { min-height: 100%; display: flex; align-items: center; justify-content: center; }
 
-/* NovaUI Studio: a real component explorer built with public NovaUI components. */
-.studio-root { min-height: 100vh; background: var(--bg); }
-.studio-sidebar { width: 310px; min-width: 250px; gap: 12px; border-right-color: var(--border); }
-.studio-sidebar > .nova-button { width: 100%; text-align: left; }
-.studio-main { width: calc(100% - 310px); min-width: 0; padding: 20px; gap: 16px; }
-.studio-topbar { min-height: 52px; padding: 0 4px 14px; border-bottom: 1px solid var(--border); }
-.studio-hero { gap: 8px; background: linear-gradient(125deg, color-mix(in srgb, var(--primary) 11%, var(--surface)), var(--surface) 72%); }
-.studio-hero > .nova-text:first-child { letter-spacing: -.035em; }
-.studio-pill { padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); background: var(--surface); font-size: 12px; }
-.studio-feature-grid > .nova-card { box-shadow: none; }
-.studio-workspace { min-width: 0; }
-.studio-workspace > .nova-layout { min-width: 0; }
-.studio-panel { flex: 1 1 55%; min-width: 0; }
-.studio-inspector { flex: 1 1 35%; min-width: 260px; }
-.studio-preview-card { min-height: 150px; }
-.studio-preview-card .nova-grid { margin-top: 12px; }
-.studio-catalogue { min-width: 0; width: 100%; }
-.studio-catalogue .nova-table { font-size: 13px; }
-.studio-footer { color: var(--muted); font-size: 12px; }
-@media (max-width: 900px) {
-  #app { padding: 0; }
-  .studio-root { flex-direction: column; }
-  .studio-sidebar { width: 100%; min-width: 0; border-right: 0; border-bottom: 1px solid var(--border); }
-  .studio-sidebar .studio-catalogue { max-height: 260px; overflow: auto; }
-  .studio-main { width: 100%; padding: 16px; }
-  .studio-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Shared component finish. The glass theme changes material, not component
+   geometry, so controls and surfaces stay balanced across every application. */
+.nova-image {
+  display: block;
+  max-width: 100%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
 }
-@media (max-width: 600px) {
-  .studio-main { padding: 12px; }
-  .studio-topbar { flex-wrap: wrap; }
-  .studio-topbar .nova-spacer { display: none; }
-  .studio-feature-grid { grid-template-columns: minmax(0, 1fr); }
-  .studio-workspace { flex-direction: column; }
-  .studio-inspector { min-width: 0; }
+.nova-icon-button {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: var(--radius-icon-button);
+  line-height: 1;
+}
+.nova-icon-button.size-small { width: 38px; min-width: 38px; height: 38px; }
+.nova-icon-button.size-large { width: 56px; min-width: 56px; height: 56px; }
+.nova-icon-button-glyph {
+  display: grid;
+  place-items: center;
+  font-size: 1.2em;
+  transform: scale(1);
+  transition: transform var(--motion-interactive) var(--ease-natural);
+}
+.nova-icon-button:hover:not(:disabled) {
+  transform: scale(1.025);
+}
+.nova-icon-button:hover:not(:disabled) .nova-icon-button-glyph {
+  transform: scale(1.04);
+}
+.nova-icon-button:active:not(:disabled) { transform: scale(.96); }
+.nova-icon-button.secondary {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 14%, var(--border));
+  color: var(--primary);
+  box-shadow: var(--shadow-icon), inset 0 1px rgba(255, 255, 255, .66);
+}
+.nova-icon-button.secondary:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--primary) 13%, var(--surface));
+  box-shadow: var(--shadow-icon-hover), inset 0 1px rgba(255, 255, 255, .7);
+}
+.nova-button-icon, .nova-icon { display: inline-grid; flex: 0 0 auto; place-items: center; line-height: 0; }
+.nova-button-icon .nova-icon-svg { width: 18px; height: 18px; }
+.nova-icon-svg { display: block; flex: 0 0 auto; }
+.nova-icon-button-glyph .nova-icon-svg { width: 20px; height: 20px; }
+.nova-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 24px;
+  padding: 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--muted) 24%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--muted) 9%, var(--surface));
+  color: var(--text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: border-color var(--motion-interactive) var(--ease-natural), background-color var(--motion-interactive) var(--ease-natural);
+}
+.nova-badge.tone-info { border-color: color-mix(in srgb, var(--info) 28%, transparent); background: color-mix(in srgb, var(--info) 12%, var(--surface)); color: var(--info); }
+.nova-badge.tone-success { border-color: color-mix(in srgb, var(--success) 28%, transparent); background: color-mix(in srgb, var(--success) 12%, var(--surface)); color: var(--success); }
+.nova-badge.tone-warning { border-color: color-mix(in srgb, var(--warning) 28%, transparent); background: color-mix(in srgb, var(--warning) 12%, var(--surface)); color: var(--warning); }
+.nova-badge.tone-danger { border-color: color-mix(in srgb, var(--danger) 28%, transparent); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); color: var(--danger); }
+.nova-divider { flex: 0 0 auto; border: 0; background: var(--border); }
+.nova-divider.orientation-horizontal { width: 100%; height: 1px; margin: 8px 0; }
+.nova-divider.orientation-vertical { width: 1px; align-self: stretch; min-height: 1.5em; margin: 0 8px; }
+.nova-progress { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; }
+.nova-progress-track { position: relative; display: block; flex: 1 1 auto; min-width: 48px; height: 8px; overflow: hidden; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--primary) 12%, var(--border)); }
+.nova-progress-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 72%, white)); transition: width 420ms var(--ease-natural); }
+.nova-progress-value { min-width: 3ch; color: var(--muted); font-size: var(--font-size-xs); font-variant-numeric: tabular-nums; text-align: right; }
+.nova-skeleton { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; width: 100%; min-width: 24px; overflow: hidden; }
+.nova-skeleton.variant-text { height: auto; min-height: 12px; }
+.nova-skeleton.variant-rect { min-height: 32px; border-radius: var(--radius-control); }
+.nova-skeleton.variant-circle { width: 40px; min-width: 40px; height: 40px; min-height: 40px; border-radius: 50%; }
+.nova-skeleton-line { display: block; width: 100%; min-height: 10px; border-radius: var(--radius-pill); background: linear-gradient(100deg, color-mix(in srgb, var(--muted) 12%, var(--surface)), color-mix(in srgb, var(--muted) 24%, var(--surface)), color-mix(in srgb, var(--muted) 12%, var(--surface))); background-size: 220% 100%; animation: nova-shimmer 1.5s ease-in-out infinite; }
+.nova-skeleton-line.last-line { width: 68%; }
+@keyframes nova-shimmer { to { background-position-x: -220%; } }
+.nova-sidebar { border-radius: var(--radius-lg); }
+.nova-header, .nova-footer { border-radius: var(--radius); }
+.nova-field .field-label { font-weight: var(--font-weight-medium); }
+.nova-field .field-error { margin-top: 1px; }
+.nova-form-status, .nova-dialog-status { color: var(--danger); font-size: var(--font-size-sm); }
+.nova-tab:hover { color: var(--text); background: color-mix(in srgb, var(--primary) 6%, transparent); }
+.nova-tab-panel { min-width: 0; }
+.nova-alert.success { background: color-mix(in srgb, var(--success) 8%, var(--surface)); }
+.nova-alert.warning { background: color-mix(in srgb, var(--warning) 9%, var(--surface)); }
+.nova-alert.error { background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
+.nova-alert.info { background: color-mix(in srgb, var(--info) 8%, var(--surface)); }
+.nova-spinner-mark { flex: 0 0 auto; }
+.nova-dialog-status:empty { display: none; }
+.nova-dialog-actions { flex-wrap: wrap; }
+.nova-table-scroll { background: var(--surface); }
+.nova-table tbody tr:hover { background: color-mix(in srgb, var(--primary) 5%, var(--surface)); }
+.nova-table-sort { border-radius: var(--radius-sm); padding: 4px 6px; }
+.nova-table-sort:hover { background: color-mix(in srgb, var(--primary) 7%, transparent); }
+.nova-table-pagination { flex-wrap: wrap; }
+.nova-animated { transform-origin: center; }
+
+/* Liquid glass is opt-in via Theme(appearance="glass"). A stronger, even
+   tint keeps content legible while the backdrop supplies color and depth. */
+:root[data-appearance="glass"] .nova-card:not(.solid),
+:root[data-appearance="glass"] .nova-input,
+:root[data-appearance="glass"] .nova-button.secondary,
+:root[data-appearance="glass"] .nova-table-search,
+:root[data-appearance="glass"] .nova-table-filter,
+:root[data-appearance="glass"] .nova-dialog,
+:root[data-appearance="glass"] .nova-table-scroll,
+:root[data-appearance="glass"] .nova-sidebar,
+:root[data-appearance="glass"] .nova-header,
+:root[data-appearance="glass"] .nova-footer,
+:root[data-appearance="glass"] .nova-alert,
+:root[data-appearance="glass"] .nova-chart,
+:root[data-appearance="glass"] .nova-navigation-bar,
+:root[data-appearance="glass"] .nova-scaffold-sidebar,
+:root[data-appearance="glass"] .nova-scaffold-topbar {
+  background-color: color-mix(in srgb, var(--surface-raised, var(--surface)) var(--glass-opacity), transparent);
+  background-image: linear-gradient(145deg, var(--glass-sheen), transparent 46%);
+  border-color: var(--glass-edge);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.45);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.45);
+}
+:root[data-appearance="glass"] .nova-card:not(.solid) { box-shadow: var(--glass-shadow); }
+:root[data-appearance="glass"] .nova-scaffold-sidebar { border-radius: 0; }
+:root[data-appearance="glass"] .nova-card:not(.solid):hover { border-color: color-mix(in srgb, var(--primary) 22%, var(--glass-edge)); }
+:root[data-appearance="glass"] .nova-dialog { box-shadow: var(--shadow-lg); }
+:root[data-appearance="glass"] .nova-card:not(.solid),
+:root[data-appearance="glass"] .nova-table-scroll { border-radius: var(--radius); }
+:root[data-appearance="glass"] .nova-input { border-radius: var(--radius-control); }
+:root[data-appearance="glass"] .nova-button.secondary { border-radius: var(--radius-pill); }
+:root[data-appearance="glass"] .nova-dialog { border-radius: var(--radius-overlay); }
+:root[data-appearance="glass"] .nova-table-search,
+:root[data-appearance="glass"] .nova-table-filter { border-radius: var(--radius-control); }
+:root[data-appearance="glass"] .nova-sidebar { border-radius: var(--radius-lg); }
+:root[data-appearance="glass"] .nova-header,
+:root[data-appearance="glass"] .nova-footer { border-radius: var(--radius); }
+:root[data-appearance="glass"] .nova-app-shell > .nova-sidebar,
+:root[data-appearance="glass"] .nova-app-shell > .nova-main-content > .nova-header { border-radius: 0; }
+:root[data-appearance="glass"] .nova-data-table,
+:root[data-appearance="glass"] .nova-table th { background: transparent; }
+:root[data-appearance="glass"] .nova-input { background-clip: padding-box; }
+:root[data-appearance="glass"] .nova-button.secondary:hover {
+  background-color: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  background-image: linear-gradient(145deg, var(--glass-sheen), transparent 46%);
+}
+:root[data-appearance="glass"] .nova-icon-button.secondary {
+  border-color: var(--glass-edge);
+  background-image: linear-gradient(145deg, var(--glass-sheen), transparent 68%);
+  box-shadow: var(--shadow-icon), inset 0 1px 0 rgba(255, 255, 255, .58);
+}
+:root[data-appearance="glass"] .nova-icon-button.secondary:hover:not(:disabled) {
+  box-shadow: var(--shadow-icon-hover), inset 0 1px 0 rgba(255, 255, 255, .76);
+}
+:root[data-appearance="glass"] .nova-button.secondary { background-image: linear-gradient(145deg, var(--glass-sheen), transparent 70%); }
+:root[data-appearance="glass"] .nova-navigation-item.active {
+  background-color: color-mix(in srgb, var(--primary) 11%, var(--surface));
+  background-image: linear-gradient(145deg, var(--glass-sheen), transparent 70%);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--glass-edge));
+  -webkit-backdrop-filter: blur(14px) saturate(1.45);
+  backdrop-filter: blur(14px) saturate(1.45);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+:root[data-appearance="glass"] .nova-scaffold-nav-item:hover {
+  background-color: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  background-image: linear-gradient(145deg, var(--glass-sheen), transparent 72%);
+  border-color: color-mix(in srgb, var(--primary) 16%, var(--glass-edge));
+  -webkit-backdrop-filter: blur(12px) saturate(1.35);
+  backdrop-filter: blur(12px) saturate(1.35);
+}
+:root[data-appearance="glass"] .nova-scaffold-nav-item.active {
+  background-color: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  background-image: linear-gradient(145deg, var(--glass-highlight), transparent 72%);
+  border-color: color-mix(in srgb, var(--primary) 27%, var(--glass-edge));
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+:root[data-appearance="glass"] .nova-badge { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+:root[data-appearance="glass"] .nova-divider { background: color-mix(in srgb, var(--glass-edge) 70%, var(--border)); }
+:root[data-appearance="glass"] .nova-progress-track { background: color-mix(in srgb, var(--primary) 13%, var(--surface)); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .08); }
+:root[data-appearance="glass"] .nova-skeleton-line { background-image: linear-gradient(100deg, color-mix(in srgb, var(--surface) 76%, transparent), color-mix(in srgb, var(--primary) 18%, var(--surface)), color-mix(in srgb, var(--surface) 76%, transparent)); }
+:root[data-appearance="glass"] .nova-alert.success { background-color: color-mix(in srgb, var(--success) 13%, var(--surface)); }
+:root[data-appearance="glass"] .nova-alert.warning { background-color: color-mix(in srgb, var(--warning) 14%, var(--surface)); }
+:root[data-appearance="glass"] .nova-alert.error { background-color: color-mix(in srgb, var(--danger) 14%, var(--surface)); }
+:root[data-appearance="glass"] .nova-alert.info { background-color: color-mix(in srgb, var(--info) 13%, var(--surface)); }
+:root[data-appearance="glass"] .nova-table-scroll { overflow: auto; }
+:root[data-appearance="glass"] .nova-table tbody tr:hover { background: color-mix(in srgb, var(--primary) 9%, transparent); }
+
+@supports not (backdrop-filter: blur(1px)) {
+  :root[data-appearance="glass"] .nova-card:not(.solid),
+  :root[data-appearance="glass"] .nova-input,
+  :root[data-appearance="glass"] .nova-button.secondary,
+  :root[data-appearance="glass"] .nova-table-search,
+  :root[data-appearance="glass"] .nova-table-filter,
+  :root[data-appearance="glass"] .nova-dialog,
+  :root[data-appearance="glass"] .nova-table-scroll,
+  :root[data-appearance="glass"] .nova-sidebar,
+  :root[data-appearance="glass"] .nova-header,
+  :root[data-appearance="glass"] .nova-footer,
+  :root[data-appearance="glass"] .nova-alert,
+  :root[data-appearance="glass"] .nova-chart,
+  :root[data-appearance="glass"] .nova-navigation-bar,
+  :root[data-appearance="glass"] .nova-scaffold-sidebar,
+  :root[data-appearance="glass"] .nova-scaffold-topbar,
+  :root[data-appearance="glass"] .nova-icon-button.secondary,
+  .nova-card.glass,
+  .nova-card.glass-strong {
+    background-color: var(--surface-raised, var(--surface));
+    background-image: none;
+  }
+}
+
+@media (max-width: 640px) {
+  :root[data-appearance="glass"] .nova-scaffold-navigation {
+    background-color: color-mix(in srgb, var(--surface-raised, var(--surface)) var(--glass-opacity), transparent);
+    background-image: linear-gradient(145deg, var(--glass-highlight), transparent 62%);
+    border-color: var(--glass-edge);
+    box-shadow: var(--glass-shadow);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  @media (max-width: 640px) {
+    :root[data-appearance="glass"] .nova-scaffold-navigation {
+      background: var(--surface-raised, var(--surface));
+      background-image: none;
+    }
+  }
+}
+
+/* On phones, turn each row into a labeled card instead of forcing users to
+   pan a dense desktop table horizontally. The semantic table and controls
+   remain intact for assistive technology and keyboard use. */
+@media (max-width: 640px) {
+  .nova-data-table { width: 100%; }
+  .nova-table-search { display: block; width: 100%; max-width: none; min-height: 44px; margin-bottom: 8px; }
+  .nova-table-scroll { overflow: visible; border: 0; border-radius: 0; background: transparent; }
+  .nova-table { display: block; width: 100%; border-collapse: separate; text-align: left; }
+  .nova-table thead { display: block; margin-bottom: 8px; }
+  .nova-table thead tr:first-child { display: flex; flex-wrap: wrap; gap: 4px; }
+  .nova-table thead tr:first-child th { flex: 1 1 calc(50% - 4px); min-width: 0; padding: 4px 6px; border: 0; background: transparent; }
+  .nova-table thead tr:first-child .nova-table-select-heading { flex: 0 0 40px; min-width: 40px; }
+  .nova-table-sort { min-height: 38px; padding: 8px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface-raised, var(--surface)) 84%, transparent); }
+  .nova-table thead tr:last-child { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .nova-table thead tr:last-child th { display: block; padding: 0; border: 0; background: transparent; }
+  .nova-table thead tr:last-child th:empty { display: none; }
+  .nova-table-filter { min-height: 42px; }
+  .nova-table tbody { display: grid; gap: 9px; }
+  .nova-table tbody tr:not(.nova-table-empty-row) {
+    display: grid;
+    gap: 0;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--surface-raised, var(--surface)) 88%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, white 58%, transparent);
+    transition: border-color var(--motion-interactive) var(--ease-natural), background-color var(--motion-interactive) var(--ease-natural);
+  }
+  .nova-table tbody tr.selected { border-color: color-mix(in srgb, var(--primary) 42%, var(--border)); background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
+  .nova-table tbody tr[tabindex]:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+  .nova-table tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-width: 0;
+    padding: 10px 2px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+    overflow-wrap: anywhere;
+  }
+  .nova-table tbody td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+  }
+  .nova-table tbody td.nova-table-select-cell { justify-content: flex-start; }
+  .nova-table-select-cell::before { min-width: 3.5rem; }
+  .nova-table tbody tr td:last-child { border-bottom: 0; }
+  .nova-table tbody .nova-table-empty-row { display: block; padding: 0; border: 0; background: transparent; box-shadow: none; }
+  .nova-table tbody .nova-table-empty-row td { display: block; padding: 20px 14px; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted); text-align: center; }
+  .nova-table tbody .nova-table-empty-row td::before { content: none; }
+  .nova-table-status { margin: 8px 2px; }
+  .nova-table-pagination { justify-content: space-between; gap: 6px; }
+  .nova-table-pagination .nova-button { min-height: 42px; padding: 7px 10px; }
 }

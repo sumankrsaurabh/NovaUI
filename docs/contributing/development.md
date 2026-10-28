@@ -5,7 +5,7 @@ From the repository root:
 ```bash
 python -m pip install -e '.[dev]'
 PYTHONPATH=. python -m pytest -q
-python -m ruff check novaui tests examples packaging
+python -m ruff check novaui tests packaging
 node --check novaui/frontend/app.js
 ```
 
